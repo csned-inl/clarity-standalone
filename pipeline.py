@@ -16,7 +16,6 @@ sys.path.insert(0, str(ROOT / "rl"))
 
 from analytic import evaluate, fit, save  # noqa: E402
 from formal import verify  # noqa: E402
-from gru import train_and_select  # noqa: E402
 from shield import SpecShield  # noqa: E402
 
 MODELS = {
@@ -68,6 +67,10 @@ def run_one(model_name: str, mode: str, output_root: Path, *, nuxmv: Path,
                          "evaluation": result,
                          "final_model": str(final.resolve())}
     else:
+        # Keep PyTorch optional for the analytical path.  The GRU modules
+        # import PyTorch at module load time, so load them only when selected.
+        from gru import train_and_select
+
         policy_report = train_and_select(
             model, out_dir, seed=seed, max_steps=max_steps,
             eval_episodes=eval_episodes, test_episodes=test_episodes,
