@@ -30,14 +30,19 @@ gate, the run stops without a `final/policy.pt`.
 
 ## Run
 
-Requires Python 3.10+, PyTorch, NumPy, and a nuXmv executable. Install the
-Python packages with `python -m pip install -r requirements.txt` in a virtual
-environment.
+Requires Python 3.10+, NumPy, and a nuXmv executable. GRU mode additionally
+requires PyTorch; analytic mode does not import it. Install the Python packages
+with `python -m pip install -r requirements.txt` in a virtual environment.
 
 ```bash
 python pipeline.py --model thermostat --mode analytic --output runs --nuxmv /path/to/nuXmv
 python pipeline.py --model mixing --mode gru --output runs --nuxmv /path/to/nuXmv
 ```
+
+If the official Linux archive is extracted under `tools/nuxmv`, the executable
+is detected automatically. CLARITY supplies its bundled non-glibc libraries
+without replacing the host's `libc` or `libm`; this avoids both missing-library
+errors and host-glibc conflicts.
 
 `--model` accepts `thermostat`, `cruise`, `mixing`, or `all`. Each run writes
 to `<output>/<model>/<mode>` and requires that directory to be new, so a

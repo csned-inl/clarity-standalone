@@ -26,6 +26,14 @@ MODELS = {
 MODEL_DT = {"thermostat": 1.0, "cruise": 0.1, "mixing": 0.1}
 
 
+def default_nuxmv() -> Path | None:
+    system = shutil.which("nuXmv")
+    if system:
+        return Path(system)
+    bundled = ROOT / "tools" / "nuxmv" / "usr" / "local" / "bin" / "nuXmv"
+    return bundled if bundled.is_file() else None
+
+
 def run_one(model_name: str, mode: str, output_root: Path, *, nuxmv: Path,
             timeout: int, seed: int, max_steps: int, eval_episodes: int,
             test_episodes: int, oracle_samples: int, oracle_epochs: int,
@@ -96,7 +104,8 @@ def main() -> int:
     parser.add_argument("--model", choices=[*MODELS, "all"], default="all")
     parser.add_argument("--mode", choices=["analytic", "gru"], required=True)
     parser.add_argument("--output", type=Path, required=True)
-    parser.add_argument("--nuxmv", type=Path, default=shutil.which("nuXmv"))
+    parser.add_argument("--nuxmv", type=Path, default=default_nuxmv(),
+                        help="nuXmv executable (auto-detects tools/nuxmv bundle)")
     parser.add_argument("--timeout", type=int, default=300,
                         help="seconds allowed for each formal stage")
     parser.add_argument("--seed", type=int, default=42)
