@@ -1,0 +1,33 @@
+{
+  "clarity_results": [],
+  "command": ".venv/bin/python -c 'import torch; assert torch.cuda.is_available(); print(\"CLARITY workstation handshake PASS\"); print(torch.cuda.get_device_name(0))'",
+  "duration_seconds": 3.626,
+  "exit_code": 0,
+  "finished_at_utc": "2026-09-27T18:46:20Z",
+  "interrupted_signal": null,
+  "local_log": {
+    "bytes": 77,
+    "published": false,
+    "sha256": "95d2fe5d6e726d99c0456122d6fc9b8badd5a55f90ee46e7e7b867dc9a668cb4"
+  },
+  "project": "CLARITY",
+  "run_id": "handshake-20260927-124616",
+  "runtime": {
+    "cuda_available": true,
+    "cuda_device_count": 1,
+    "gpu_name": "NVIDIA RTX 5000 Ada Generation Laptop GPU",
+    "platform": "linux",
+    "python": "3.14.4",
+    "torch": "2.14.0+cu130",
+    "torch_cuda": "13.0"
+  },
+  "schema_version": 1,
+  "source": {
+    "branch": "codex/workstation-reporting",
+    "commit": "9c09d0273e747f1b35b067b8b901963681e8dd43",
+    "repository": "csned-inl/clarity-standalone",
+    "tracked_tree_clean": true
+  },
+  "started_at_utc": "2026-09-27T18:46:16Z",
+  "status": "passed"
+}
