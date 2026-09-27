@@ -28,6 +28,7 @@ def train_and_select(model: Path, out_dir: Path, *, seed: int = 42,
 
     torch.set_num_threads(1)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    print(f"  Training device: {device}", flush=True)
     iface = extract_interface(str(model), dt=dt)
     probe = SysMLEnv(str(model), dt=dt, max_steps=max_steps,
                      phase=1, rng_seed=seed)
@@ -57,6 +58,7 @@ def train_and_select(model: Path, out_dir: Path, *, seed: int = 42,
         "ppo_episodes": ppo_episodes, "checkpoint_interval": 100,
         "observation_dimension": obs_dim, "action_count": n_actions,
         "parameter_count": sum(p.numel() for p in composite.policy.parameters()),
+        "device": str(device),
         "seed": seed,
         "dt_seconds": dt,
     }
