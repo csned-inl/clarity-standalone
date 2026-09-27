@@ -99,5 +99,8 @@ Run the response-timing regression tests with
 Run the scan timing and precision regressions with
 `python tests/test_scan_clock.py -v`.
 
+For commit-pinned workstation execution with sanitized Git result reporting,
+see [`WORKSTATION_REPORTING.md`](WORKSTATION_REPORTING.md).
+
 This reference contains no MDP proof, discretization proof, architecture
 fitting, or continuous cruise controller pipeline.
