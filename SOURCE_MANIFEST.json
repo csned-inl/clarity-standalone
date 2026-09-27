@@ -1,0 +1,84 @@
+{
+  "models": {
+    "cruise": {
+      "file": "sysml-models/cruise-controller-model/model.sysml",
+      "sha256": "3fd949d55c97de73946be48f803f982eecbb2fee78e568843d77ef4964403254"
+    },
+    "mixing": {
+      "file": "sysml-models/mixing-sysml-model/model.sysml",
+      "sha256": "09d59723435da435325299934ed8472bbac3e89c6d9840df892b9f7e1c912f8f"
+    },
+    "thermostat": {
+      "file": "sysml-models/thermostat/model.sysml",
+      "sha256": "44dec2333511c5cf7a40ad1828b612a043f9c7c71f6b960c276ce866f4a521aa"
+    }
+  },
+  "models_source": "automated-writing/fitter_artifact/src/clarity/models; mixing tolerance applied to working copy after local commit 6d17efb",
+  "parser": {
+    "file": "sysml-models/sysml_parser.py",
+    "sha256": "b9c9ce1e7e8b1f1def1fb147bf34e0d08f8080c056251f59b9faf6a02cc710b2",
+    "source": "automated-writing/fitter_artifact/src/clarity/sysml/parser.py working copy"
+  },
+  "base_source": "Kubuntu backup: shield-pipeline-new-sysml",
+  "base_components": [
+    "sysml-models/mc-extract.py",
+    "sysml-models/simulator.py",
+    "sysml-models/simulator_adapter.py",
+    "rl/model.py",
+    "rl/ppo.py",
+    "rl/env.py",
+    "rl/oracle.py",
+    "rl/shield.py",
+    "rl/composite_model.py",
+    "rl/train.py"
+  ],
+  "runtime_timing_repair": {
+    "source": "current fitter_artifact runtime: initialization and cycle_end requirement ledger, final response before completion",
+    "files": {
+      "sysml-models/simulator.py": "c1632f604d3442026fad80fc657e8cdafa4bfd375576ab04ed90afac353d8532",
+      "sysml-models/simulator_adapter.py": "69dbb89e874fe65e688ca6392e488351ba66589792085d27fb01a844afffce8e",
+      "sysml-models/parser_values.py": "f7a803fe7ac35669910b7fb0828166122f5011e1a93ad1195c08acc51eccdcb3",
+      "sysml-models/requirement_events.py": "5923d92897ca34e79ea9b77ca67ad639449fa3665e602aa8cdadf6c5a9191d77",
+      "rl/env.py": "420a573a4c9209ff1a7dc5d4ae72d8ce759c0f263067737967277fb63633cd85",
+      "rl/train.py": "c4864e9348f733d5b429028179c5e3b930ac4df366a5649b87cf79543c8d4f1e",
+      "analytic.py": "225febb1034c39bdb4068e2df02155f5f19b9cc44ec10292461dc5567f1d4fb7",
+      "selection.py": "4dec22e6dcba2f8a60c66585b7db3ad6615a55ad7857630ecb56604202614f92",
+      "tests/test_response_timing.py": "832c63b16510f613277640b8fc823b1d88bce9d017defa078cb6a0b69fb0d30d"
+    }
+  },
+  "model_dt_seconds": {
+    "thermostat": 1.0,
+    "cruise": 0.1,
+    "mixing": 0.1
+  },
+  "timestep_configuration": {
+    "pipeline.py": "3a8c3085ebfc8473c8990128cbe7e73b5eb52b958c8c9ab7ee7ef93700d75f58",
+    "gru.py": "4a824dea52097d0048e0b638b95ea03e0402ed2b3786a9f3e091ee5fa85b3e48",
+    "rl/train.py": "c4864e9348f733d5b429028179c5e3b930ac4df366a5649b87cf79543c8d4f1e"
+  },
+  "spec_helper": {
+    "description": "Parsed SysML AST compiled into Python predicates, no numerical network; no valid action raises an error",
+    "files": {
+      "rl/shield.py": "ec3af8bf587eb334d123f8564ff8e7f1d34f5b3b510fce1dd972b202611d047c",
+      "rl/composite_model.py": "931956c503dd07c5c0e92129d9a27b075c5c554f691bf6a95799bd8ff20d1cf8",
+      "rl/env.py": "420a573a4c9209ff1a7dc5d4ae72d8ce759c0f263067737967277fb63633cd85",
+      "rl/train.py": "c4864e9348f733d5b429028179c5e3b930ac4df366a5649b87cf79543c8d4f1e",
+      "selection.py": "4dec22e6dcba2f8a60c66585b7db3ad6615a55ad7857630ecb56604202614f92",
+      "tests/test_spec_helper.py": "dbb09897c4d211d1b4e5f65cbbe37b0f70bfe333bf9cf4afba9748c1d41a0edf"
+    }
+  },
+  "scan_clock_repair": {
+    "description": "Per-update binary64 roundoff bounds; exact helper history resolves uncertain scan guards; model numeric types unchanged. SMV scan guard and snapshot use the preceding clock increment and preserve the scan period real division.",
+    "files": {
+      "sysml-models/scan_clock.py": "165c842a715b332d4b3a707814170fe0db134d16af5ba73b7a5b9ce0a232d94d",
+      "sysml-models/simulator.py": "c1632f604d3442026fad80fc657e8cdafa4bfd375576ab04ed90afac353d8532",
+      "sysml-models/mc-extract.py": "5463ba8864246404c9e673f0cdc6a63772dbc5bdaaf7d306c65ee4a58b5bba55",
+      "tests/test_scan_clock.py": "66cf5d42db40ada6580209cda380808f84d0dccc34222076cf5d4ca3177d0ebe"
+    },
+    "workstation_validation": {
+      "worker": "kubuntu-workstation",
+      "harness_job_id": "abc36d22-19e4-42e5-8559-159644060acd",
+      "tested_archive_sha256": "4ba58f72e5bbcfbdda57175a671789654381816dba7c2cd65daa23115e7d4520"
+    }
+  }
+}
