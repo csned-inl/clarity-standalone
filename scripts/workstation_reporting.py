@@ -370,6 +370,33 @@ def _load_report(path: Path) -> dict[str, Any]:
     return value
 
 
+def _recover_legacy_partial(checkout: Path, report: dict[str, Any], canonical: str) -> None:
+    """Repair the v1 prototype's known partial add before normal publication.
+
+    The repository-wide ``runs/`` ignore rule also matched the original
+    ``workstation-reports/runs/`` destination. Git staged ``latest.json`` and
+    then rejected the ignored immutable file. Only this exact, content-matched
+    partial state is repaired automatically; every other dirty state remains a
+    hard refusal.
+    """
+    latest = checkout / "workstation-reports" / "latest.json"
+    legacy = (checkout / "workstation-reports" / "runs" /
+              f"{report['run_id']}.json")
+    status = git(checkout, "status", "--porcelain").stdout.splitlines()
+    if status == ["A  workstation-reports/latest.json"]:
+        if not latest.is_file() or latest.read_text() != canonical:
+            raise ReportingError("reporting checkout has an unrecognized staged latest.json")
+        git(checkout, "restore", "--staged", "--", "workstation-reports/latest.json")
+        latest.unlink()
+        status = git(checkout, "status", "--porcelain").stdout.splitlines()
+    if legacy.exists():
+        if not legacy.is_file() or legacy.read_text() != canonical:
+            raise ReportingError("legacy ignored report has unexpected content")
+        legacy.unlink()
+    if status:
+        raise ReportingError("reporting checkout has uncommitted changes")
+
+
 def publish_report(report_path: Path, checkout: Path, *,
                    repository: str = DEFAULT_REPOSITORY,
                    branch: str = DEFAULT_REPORT_BRANCH,
@@ -389,8 +416,8 @@ def publish_report(report_path: Path, checkout: Path, *,
     remote = git(checkout, "remote", "get-url", "origin").stdout.strip()
     if verify_remote and not _remote_matches(remote, repository):
         raise ReportingError(f"reporting origin is not {repository}: {remote}")
-    if git(checkout, "status", "--porcelain").stdout.strip():
-        raise ReportingError("reporting checkout has uncommitted changes")
+    canonical = json.dumps(report, indent=2, sort_keys=True) + "\n"
+    _recover_legacy_partial(checkout, report, canonical)
 
     lock_path = _git_dir(checkout) / "workstation-report.lock"
     lock_path.parent.mkdir(parents=True, exist_ok=True)
@@ -398,10 +425,9 @@ def publish_report(report_path: Path, checkout: Path, *,
         fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
         git(checkout, "pull", "--rebase", "origin", branch)
 
-        relative = Path("workstation-reports") / "runs" / f"{report['run_id']}.json"
+        relative = Path("workstation-reports") / "results" / f"{report['run_id']}.json"
         destination = checkout / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
-        canonical = json.dumps(report, indent=2, sort_keys=True) + "\n"
         if destination.exists():
             if destination.read_text() != canonical:
                 raise ReportingError(f"run ID already exists with different content: {report['run_id']}")

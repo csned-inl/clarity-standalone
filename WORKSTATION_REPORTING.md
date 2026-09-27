@@ -6,6 +6,9 @@ only a compact JSON report to the `workstation-results` branch. The repository
 is public: never add raw logs, checkpoints, credentials, environment dumps, or
 machine-specific files to that branch.
 
+Immutable reports use `workstation-reports/results/`; this deliberately avoids
+the repository-wide `runs/` ignore rule used for local execution artifacts.
+
 ## One-time reporting checkout
 
 After the reporting branch exists:

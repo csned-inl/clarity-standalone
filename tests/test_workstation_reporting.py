@@ -132,7 +132,8 @@ class WorkstationReportingTests(unittest.TestCase):
             git(seed, "config", "user.email", "test@example.invalid")
             git(seed, "switch", "-c", "workstation-results")
             (seed / "README.md").write_text("report channel\n")
-            git(seed, "add", "README.md")
+            (seed / ".gitignore").write_text("runs/\n")
+            git(seed, "add", "README.md", ".gitignore")
             git(seed, "commit", "-m", "Initialize reports")
             git(seed, "push", "-u", "origin", "workstation-results")
             git(root, "clone", "--branch", "workstation-results", str(remote), str(checkout))
@@ -153,11 +154,58 @@ class WorkstationReportingTests(unittest.TestCase):
                 verify_remote=False)
 
             self.assertEqual(commit, git(checkout, "rev-parse", "HEAD"))
-            published = checkout / "workstation-reports" / "runs" / "handshake-test.json"
+            published = checkout / "workstation-reports" / "results" / "handshake-test.json"
             self.assertTrue(published.is_file())
             self.assertEqual(json.loads(published.read_text())["status"], "passed")
             self.assertEqual(
                 git(checkout, "status", "--porcelain"), "")
+
+    def test_publish_recovers_known_partial_legacy_add(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            remote = root / "remote.git"
+            seed = root / "seed"
+            checkout = root / "reports"
+            git(root, "init", "--bare", str(remote))
+            git(root, "clone", str(remote), str(seed))
+            git(seed, "config", "user.name", "Test User")
+            git(seed, "config", "user.email", "test@example.invalid")
+            git(seed, "switch", "-c", "workstation-results")
+            (seed / ".gitignore").write_text("runs/\n")
+            (seed / "README.md").write_text("report channel\n")
+            git(seed, "add", ".gitignore", "README.md")
+            git(seed, "commit", "-m", "Initialize reports")
+            git(seed, "push", "-u", "origin", "workstation-results")
+            git(root, "clone", "--branch", "workstation-results", str(remote), str(checkout))
+            git(checkout, "config", "user.name", "Test User")
+            git(checkout, "config", "user.email", "test@example.invalid")
+
+            report = {
+                "schema_version": 1,
+                "project": "CLARITY",
+                "run_id": "legacy-partial",
+                "status": "passed",
+                "source": {"repository": "test/repo"},
+            }
+            report_path = root / "report.json"
+            write_json(report_path, report)
+            canonical = report_path.read_text()
+            latest = checkout / "workstation-reports" / "latest.json"
+            legacy = checkout / "workstation-reports" / "runs" / "legacy-partial.json"
+            latest.parent.mkdir(parents=True)
+            legacy.parent.mkdir(parents=True)
+            latest.write_text(canonical)
+            legacy.write_text(canonical)
+            git(checkout, "add", "workstation-reports/latest.json")
+
+            publish_report(
+                report_path, checkout, repository="test/repo",
+                verify_remote=False)
+
+            self.assertFalse(legacy.exists())
+            self.assertTrue((checkout / "workstation-reports" / "results" /
+                             "legacy-partial.json").is_file())
+            self.assertEqual(git(checkout, "status", "--porcelain"), "")
 
 
 if __name__ == "__main__":
