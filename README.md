@@ -102,5 +102,8 @@ Run the scan timing and precision regressions with
 For commit-pinned workstation execution with sanitized Git result reporting,
 see [`WORKSTATION_REPORTING.md`](WORKSTATION_REPORTING.md).
 
+For the exploratory IEC 61131-3 extension, current open questions, and the
+first Structured Text backend experiment, see [`PLC_PROJECT.md`](PLC_PROJECT.md).
+
 This reference contains no MDP proof, discretization proof, architecture
 fitting, or continuous cruise controller pipeline.
