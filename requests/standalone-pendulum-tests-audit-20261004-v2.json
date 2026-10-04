@@ -1,0 +1,14 @@
+{
+  "request_id": "standalone-pendulum-tests-audit-20261004-v2",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "01888290731a4512c99de99d00c34af89a74f8e6"
+  },
+  "command": "python3 -m unittest discover -s tests -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "architecture": "x86_64",
+    "min_cpus": 1,
+    "min_memory_mb": 2000
+  }
+}
