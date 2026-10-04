@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 1,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-pendulum-formal-dd9d-20261004-2250",
+  "resolved_sha": "dd9d9d6f7a435df3e11ab28b7158c16046766cdd",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "dd9d9d6f7a435df3e11ab28b7158c16046766cdd",
+  "stderr_tail": "Traceback (most recent call last):\n  File \"/Users/csned/clarity-jobs/8392a88d271d0098fad889ae/continuous_pipeline.py\", line 150, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/csned/clarity-jobs/8392a88d271d0098fad889ae/continuous_pipeline.py\", line 127, in main\n    report = prepare(\n        args.model, run_dir, timeout=args.timeout, nuxmv=args.nuxmv)\n  File \"/Users/csned/clarity-jobs/8392a88d271d0098fad889ae/continuous_pipeline.py\", line 85, in prepare\n    formal = verify(\n        model, formal_dir, dt=DT_SECONDS, nuxmv=nuxmv,\n        timeout_seconds=timeout)\n  File \"/Users/csned/clarity-jobs/8392a88d271d0098fad889ae/formal.py\", line 77, in verify\n    raise RuntimeError(f\"nuXmv did not prove every emitted invariant; see {out_dir}\")\nRuntimeError: nuXmv did not prove every emitted invariant; see /Users/csned/clarity-jobs/8392a88d271d0098fad889ae/runs/pendulum-formal/formal\nTraceback (most recent call last):\n  File \"<string>\", line 1, in <module>\n    import json; r=json.load(open(\"runs/pendulum-formal/summary.json\")); print(json.dumps({\"formal_status\":r[\"formal\"][\"status\"],\"verified\":r[\"formal\"][\"verified\"],\"results\":r[\"formal\"].get(\"nuXmv_results\"),\"requirements\":r[\"formal\"].get(\"requirement_names\")},sort_keys=True))\n                             ~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nFileNotFoundError: [Errno 2] No such file or directory: 'runs/pendulum-formal/summary.json'\n",
+  "stdout_tail": "",
+  "worker": "macbook"
+}
