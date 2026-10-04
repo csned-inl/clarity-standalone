@@ -9,6 +9,7 @@ permissive safe-action relation exists.
 
 from __future__ import annotations
 
+import hashlib
 import json
 from pathlib import Path
 import random
@@ -248,7 +249,20 @@ def train_exact_feedback_clone(model: Path, out_dir: Path, *,
     final_dir.mkdir()
     final_model = final_dir / "shielded_policy.pt"
     shutil.copyfile(warm_start, final_model)
+    model_sha256 = hashlib.sha256(model.read_bytes()).hexdigest()
+    deployment = {
+        "policy": final_model.name,
+        "source_model": str(model.resolve()),
+        "source_model_sha256": model_sha256,
+        "shield_contract": shield.report(),
+        "requires_runtime_shield": True,
+        "learned_policy_autonomous": False,
+    }
+    (final_dir / "deployment.json").write_text(
+        json.dumps(deployment, indent=2, sort_keys=True) + "\n")
     report["final_model"] = str(final_model.resolve())
+    report["deployment_manifest"] = str(
+        (final_dir / "deployment.json").resolve())
     (out_dir / "training_report.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n")
     return report

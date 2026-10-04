@@ -235,11 +235,13 @@ class ExactContinuousShield:
         proposed = float(proposed_action)
         if not math.isfinite(proposed):
             overridden = True
+            correction = math.inf
         else:
             overridden = not math.isclose(
                 proposed, required, rel_tol=0.0,
                 abs_tol=self.comparison_abs_tol)
-        return required, overridden, abs(proposed - required)
+            correction = abs(proposed - required)
+        return required, overridden, correction
 
     def report(self) -> dict[str, Any]:
         return {
