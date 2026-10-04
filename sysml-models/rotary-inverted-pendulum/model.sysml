@@ -10,8 +10,9 @@ package RotaryInvertedPendulum {
     metadata def ScenarioInput;
     metadata def ScenarioConstraint;
 
-    // This first model covers the QUBE-Servo 2 balance phase about the
-    // upright equilibrium. It deliberately does not claim to model swing-up.
+    // This model is the balance-phase abstraction of the particular
+    // QUBE-Servo 2 experiment documented by Rasanen and Pyrhonen (2019).
+    // It deliberately does not claim to model swing-up or every QUBE revision.
     // Physical state, sampled sensor state, proposed voltage, and executed
     // voltage are distinct symbols.
 
@@ -45,17 +46,6 @@ package RotaryInvertedPendulum {
         in item command : MotorVoltageCommand;
     }
 
-    item def AmplifierStatus {
-        attribute enabled : Boolean;
-        attribute faulted : Boolean;
-        attribute proposedVoltage : Real;
-        attribute executedVoltage : Real;
-    }
-
-    port def AmplifierStatusPort {
-        in item status : AmplifierStatus;
-    }
-
     item def StateDerivative {
         attribute armAngleRate : Real;
         attribute pendulumAngleRate : Real;
@@ -80,6 +70,7 @@ package RotaryInvertedPendulum {
         attribute pendulumAccelerationFromArmRate : Real;
         attribute pendulumAccelerationFromPendulumRate : Real;
         attribute pendulumAccelerationFromVoltage : Real;
+        attribute samplePeriodSeconds : Real;
 
         port motorVoltagePort : MotorVoltageCommandPort;
         port physicalStatePort : ~PendulumPhysicalStatePort;
@@ -101,17 +92,20 @@ package RotaryInvertedPendulum {
                 pendulumAccelerationFromPendulumRate * pendulumAngularVelocityRadiansPerSecond +
                 pendulumAccelerationFromVoltage * motorVoltagePort.command.volts;
 
-            // Forward-Euler realization of the documented continuous model.
-            // All four updates use the derivative snapshot above.
+            // Project-defined forward-Euler realization of the documented
+            // continuous model at the declared fixed sample period. All four
+            // updates use the derivative snapshot above.
             #ContinuousRate assign armAngleRadians :=
-                armAngleRadians + derivative.armAngleRate * dt;
+                armAngleRadians + derivative.armAngleRate * samplePeriodSeconds;
             #ContinuousRate assign pendulumAngleFromUprightRadians :=
-                pendulumAngleFromUprightRadians + derivative.pendulumAngleRate * dt;
+                pendulumAngleFromUprightRadians +
+                derivative.pendulumAngleRate * samplePeriodSeconds;
             #ContinuousRate assign armAngularVelocityRadiansPerSecond :=
-                armAngularVelocityRadiansPerSecond + derivative.armAngularAcceleration * dt;
+                armAngularVelocityRadiansPerSecond +
+                derivative.armAngularAcceleration * samplePeriodSeconds;
             #ContinuousRate assign pendulumAngularVelocityRadiansPerSecond :=
                 pendulumAngularVelocityRadiansPerSecond +
-                derivative.pendulumAngularAcceleration * dt;
+                derivative.pendulumAngularAcceleration * samplePeriodSeconds;
         }
 
         bind physicalStatePort.state.armAngleRadians = armAngleRadians;
@@ -132,6 +126,7 @@ package RotaryInvertedPendulum {
         attribute estimatedArmAngularVelocityRadiansPerSecond : Real;
         attribute estimatedPendulumAngularVelocityRadiansPerSecond : Real;
         attribute velocityFilterCutoffRadiansPerSecond : Real;
+        attribute samplePeriodSeconds : Real;
 
         port plantPort : PendulumPhysicalStatePort;
         port upstreamPort : ~PendulumSensorPort;
@@ -139,18 +134,19 @@ package RotaryInvertedPendulum {
         action step {
             in dt : Real;
 
-            // Backward-Euler realization of H(s) = w*s/(s+w).
+            // Project-defined backward-Euler realization of the documented
+            // H(s) = w*s/(s+w) estimator.
             assign estimatedArmAngularVelocityRadiansPerSecond :=
                 (estimatedArmAngularVelocityRadiansPerSecond +
                  velocityFilterCutoffRadiansPerSecond *
                  (plantPort.state.armAngleRadians - previousArmAngleRadians)) /
-                (1.0 + velocityFilterCutoffRadiansPerSecond * dt);
+                (1.0 + velocityFilterCutoffRadiansPerSecond * samplePeriodSeconds);
             assign estimatedPendulumAngularVelocityRadiansPerSecond :=
                 (estimatedPendulumAngularVelocityRadiansPerSecond +
                  velocityFilterCutoffRadiansPerSecond *
                  (plantPort.state.pendulumAngleFromUprightRadians -
                   previousPendulumAngleFromUprightRadians)) /
-                (1.0 + velocityFilterCutoffRadiansPerSecond * dt);
+                (1.0 + velocityFilterCutoffRadiansPerSecond * samplePeriodSeconds);
 
             assign sampledArmAngleRadians := plantPort.state.armAngleRadians;
             assign sampledPendulumAngleFromUprightRadians :=
@@ -158,64 +154,73 @@ package RotaryInvertedPendulum {
             assign previousArmAngleRadians := plantPort.state.armAngleRadians;
             assign previousPendulumAngleFromUprightRadians :=
                 plantPort.state.pendulumAngleFromUprightRadians;
-        }
 
-        bind upstreamPort.reading.armAngleRadians = sampledArmAngleRadians;
-        bind upstreamPort.reading.pendulumAngleFromUprightRadians =
-            sampledPendulumAngleFromUprightRadians;
-        bind upstreamPort.reading.estimatedArmAngularVelocityRadiansPerSecond =
-            estimatedArmAngularVelocityRadiansPerSecond;
-        bind upstreamPort.reading.estimatedPendulumAngularVelocityRadiansPerSecond =
-            estimatedPendulumAngularVelocityRadiansPerSecond;
+            item reading : PendulumReading;
+            assign reading.armAngleRadians := sampledArmAngleRadians;
+            assign reading.pendulumAngleFromUprightRadians :=
+                sampledPendulumAngleFromUprightRadians;
+            assign reading.estimatedArmAngularVelocityRadiansPerSecond :=
+                estimatedArmAngularVelocityRadiansPerSecond;
+            assign reading.estimatedPendulumAngularVelocityRadiansPerSecond :=
+                estimatedPendulumAngularVelocityRadiansPerSecond;
+            send reading via upstreamPort;
+        }
     }
 
     part def MotorAmplifier {
-        attribute enabled : Boolean;
-        attribute faulted : Boolean;
         attribute maximumVoltageMagnitude : Real;
         attribute proposedVoltage : Real;
         attribute executedVoltage : Real;
 
         port proposalPort : MotorVoltageCommandPort;
         port drivePort : ~MotorVoltageCommandPort;
-        port statusPort : ~AmplifierStatusPort;
 
-        action step {
-            in dt : Real;
+        // The command transition mirrors the item-triggered actuator pattern
+        // used by the three standalone CLARITY reference models. The held
+        // executed voltage is applied by the plant during the next sample.
+        state def AmplifierBehavior {
+            entry; then waiting;
+            state waiting;
 
-            item proposal : MotorVoltageCommand;
-            accept proposal : MotorVoltageCommand via proposalPort.command;
-            assign proposedVoltage := proposal.volts;
+            transition above_motor_limit
+                first waiting
+                accept proposal : MotorVoltageCommand via proposalPort
+                if proposal.volts > maximumVoltageMagnitude
+                do action {
+                    assign proposedVoltage := proposal.volts;
+                    assign executedVoltage := maximumVoltageMagnitude;
+                }
+                then waiting;
 
-            // This is the execution relation. A fault or disabled amplifier
-            // executes zero; otherwise the proposal is projected to the
-            // documented voltage interval.
-            if faulted or not enabled {
-                assign executedVoltage := 0.0;
-            }
-            if not faulted and enabled and proposal.volts > maximumVoltageMagnitude {
-                assign executedVoltage := maximumVoltageMagnitude;
-            }
-            if not faulted and enabled and proposal.volts < 0.0 - maximumVoltageMagnitude {
-                assign executedVoltage := 0.0 - maximumVoltageMagnitude;
-            }
-            if not faulted and enabled and
-               proposal.volts <= maximumVoltageMagnitude and
-               proposal.volts >= 0.0 - maximumVoltageMagnitude {
-                assign executedVoltage := proposal.volts;
-            }
+            transition below_motor_limit
+                first waiting
+                accept proposal : MotorVoltageCommand via proposalPort
+                if proposal.volts < 0.0 - maximumVoltageMagnitude
+                do action {
+                    assign proposedVoltage := proposal.volts;
+                    assign executedVoltage := 0.0 - maximumVoltageMagnitude;
+                }
+                then waiting;
+
+            transition inside_motor_limit
+                first waiting
+                accept proposal : MotorVoltageCommand via proposalPort
+                if proposal.volts <= maximumVoltageMagnitude and
+                   proposal.volts >= 0.0 - maximumVoltageMagnitude
+                do action {
+                    assign proposedVoltage := proposal.volts;
+                    assign executedVoltage := proposal.volts;
+                }
+                then waiting;
         }
 
+        exhibit state amplifierBehavior : AmplifierBehavior;
+
         bind drivePort.command.volts = executedVoltage;
-        bind statusPort.status.enabled = enabled;
-        bind statusPort.status.faulted = faulted;
-        bind statusPort.status.proposedVoltage = proposedVoltage;
-        bind statusPort.status.executedVoltage = executedVoltage;
     }
 
     part def BalanceController {
         attribute targetArmAngleRadians : Real;
-        attribute maximumVoltageMagnitude : Real;
         attribute captureAngleRadians : Real;
         attribute completionArmAngleToleranceRadians : Real;
         attribute completionPendulumAngleToleranceRadians : Real;
@@ -228,7 +233,6 @@ package RotaryInvertedPendulum {
         attribute lastProposedVoltage : Real;
 
         port sensorPort : PendulumSensorPort;
-        port amplifierStatusPort : AmplifierStatusPort;
         port proposalPort : ~MotorVoltageCommandPort;
 
         #Neural action def Policy {
@@ -237,8 +241,6 @@ package RotaryInvertedPendulum {
             in estimatedArmAngularVelocityRadiansPerSecond : Real;
             in estimatedPendulumAngularVelocityRadiansPerSecond : Real;
             in targetArmAngleRadians : Real;
-            in amplifierEnabled : Boolean;
-            in amplifierFaulted : Boolean;
             #Completion in done : Boolean;
 
             out proposedMotorVoltage : Real;
@@ -247,23 +249,20 @@ package RotaryInvertedPendulum {
         #NeuralRequirement requirement def 'Neural Balance Controller Soundness' {
             subject p : Policy;
 
-            // The equality is the experimentally exercised LQR law. The
-            // amplifier independently owns the safety projection to its
-            // admissible voltage interval.
+            // The equality is the paper's LQR law, interpreted using the
+            // conventional u = -K(x-xr) sign that yields A-BK. The amplifier
+            // independently owns the hardware voltage projection.
             require constraint {
-                ((p.amplifierFaulted or not p.amplifierEnabled)
-                    implies p.proposedMotorVoltage == 0.0) and
-                ((not p.amplifierFaulted and p.amplifierEnabled)
-                    implies p.proposedMotorVoltage ==
-                        0.0 -
-                        (armAngleGain *
-                            (p.armAngleRadians - p.targetArmAngleRadians) +
-                         pendulumAngleGain *
-                            p.pendulumAngleFromUprightRadians +
-                         armAngularVelocityGain *
-                            p.estimatedArmAngularVelocityRadiansPerSecond +
-                         pendulumAngularVelocityGain *
-                            p.estimatedPendulumAngularVelocityRadiansPerSecond))
+                p.proposedMotorVoltage ==
+                    0.0 -
+                    (armAngleGain *
+                        (p.armAngleRadians - p.targetArmAngleRadians) +
+                     pendulumAngleGain *
+                        p.pendulumAngleFromUprightRadians +
+                     armAngularVelocityGain *
+                        p.estimatedArmAngularVelocityRadiansPerSecond +
+                     pendulumAngularVelocityGain *
+                        p.estimatedPendulumAngularVelocityRadiansPerSecond)
             }
         }
 
@@ -272,9 +271,6 @@ package RotaryInvertedPendulum {
 
             item reading : PendulumReading;
             accept reading : PendulumReading via sensorPort.reading;
-
-            item amplifier : AmplifierStatus;
-            accept amplifier : AmplifierStatus via amplifierStatusPort.status;
 
             action policyCall : Policy {
                 in armAngleRadians := reading.armAngleRadians;
@@ -285,8 +281,6 @@ package RotaryInvertedPendulum {
                 in estimatedPendulumAngularVelocityRadiansPerSecond :=
                     reading.estimatedPendulumAngularVelocityRadiansPerSecond;
                 in targetArmAngleRadians := targetArmAngleRadians;
-                in amplifierEnabled := amplifier.enabled;
-                in amplifierFaulted := amplifier.faulted;
                 in done :=
                     reading.armAngleRadians >=
                         targetArmAngleRadians - completionArmAngleToleranceRadians and
@@ -320,16 +314,17 @@ package RotaryInvertedPendulum {
         part controller : BalanceController;
 
         flow from plant.physicalStatePort to encoder.plantPort;
-        flow from encoder.upstreamPort to controller.sensorPort;
+        connect encoder.upstreamPort to controller.sensorPort;
         connect controller.proposalPort to amplifier.proposalPort;
         flow from amplifier.drivePort to plant.motorVoltagePort;
-        flow from amplifier.statusPort to controller.amplifierStatusPort;
 
         attribute currentTimeSeconds : Real = 0.0;
+        attribute samplePeriodSeconds : Real = 0.001;
 
         action step {
             in dt : Real;
-            #ContinuousRate assign currentTimeSeconds := currentTimeSeconds + dt;
+            #ContinuousRate assign currentTimeSeconds :=
+                currentTimeSeconds + samplePeriodSeconds;
         }
 
         #Prohibition
@@ -345,34 +340,23 @@ package RotaryInvertedPendulum {
         }
 
         #Prohibition
-        requirement def 'Fault Removes Motor Drive' {
-            doc /* A faulted or disabled amplifier shall execute zero motor voltage. */
-            subject s : RotaryInvertedPendulumSystem;
-            require constraint {
-                (s.amplifier.faulted or not s.amplifier.enabled)
-                    implies s.amplifier.executedVoltage == 0.0
-            }
-        }
-
-        #Prohibition
-        requirement def 'Remain Inside Certified Balance Region' {
-            doc /* This balance-phase model is valid only while the physical pendulum remains within the configured upright capture envelope. */
+        requirement def 'Stay Within Balance Controller Envelope' {
+            doc /* During balance operation, the physical pendulum shall remain within the source experiment's configured upright envelope. */
             subject s : RotaryInvertedPendulumSystem;
             require constraint {
                 s.plant.pendulumAngleFromUprightRadians >=
-                    0.0 - s.controller.captureAngleRadians and
+                        0.0 - s.controller.captureAngleRadians and
                 s.plant.pendulumAngleFromUprightRadians <=
-                    s.controller.captureAngleRadians
+                        s.controller.captureAngleRadians
             }
         }
 
         #Obligation
-        requirement def 'Healthy Controller Supplies Feedback' {
-            doc /* While the amplifier is healthy and enabled, the controller shall issue the specified state-feedback command. */
+        requirement def 'Controller Supplies State Feedback' {
+            doc /* The controller shall issue the specified state-feedback command. */
             subject s : RotaryInvertedPendulumSystem;
             require constraint {
-                (s.currentTimeSeconds > 0.0 and
-                 s.amplifier.enabled and not s.amplifier.faulted)
+                s.currentTimeSeconds > 0.0
                     implies s.controller.lastProposedVoltage ==
                         0.0 -
                         (s.controller.armAngleGain *
@@ -390,10 +374,11 @@ package RotaryInvertedPendulum {
 
     part system : RotaryInvertedPendulumSystem {
         part :>> plant {
-            #ScenarioInput attribute :>> armAngleRadians = 0.0;
-            #ScenarioInput attribute :>> pendulumAngleFromUprightRadians = 0.05;
-            #ScenarioInput attribute :>> armAngularVelocityRadiansPerSecond = 0.0;
-            #ScenarioInput attribute :>> pendulumAngularVelocityRadiansPerSecond = 0.0;
+            // The source experiment's balance trial begins at upright rest.
+            attribute :>> armAngleRadians = 0.0;
+            attribute :>> pendulumAngleFromUprightRadians = 0.0;
+            attribute :>> armAngularVelocityRadiansPerSecond = 0.0;
+            attribute :>> pendulumAngularVelocityRadiansPerSecond = 0.0;
 
             attribute :>> armAccelerationFromPendulum = -41.6;
             attribute :>> armAccelerationFromArmRate = -4.16;
@@ -403,29 +388,28 @@ package RotaryInvertedPendulum {
             attribute :>> pendulumAccelerationFromArmRate = -4.11;
             attribute :>> pendulumAccelerationFromPendulumRate = -2.40;
             attribute :>> pendulumAccelerationFromVoltage = 13.7;
+            attribute :>> samplePeriodSeconds = 0.001;
         }
 
         part :>> encoder {
             attribute :>> sampledArmAngleRadians = 0.0;
-            attribute :>> sampledPendulumAngleFromUprightRadians = 0.05;
+            attribute :>> sampledPendulumAngleFromUprightRadians = 0.0;
             attribute :>> previousArmAngleRadians = 0.0;
-            attribute :>> previousPendulumAngleFromUprightRadians = 0.05;
+            attribute :>> previousPendulumAngleFromUprightRadians = 0.0;
             attribute :>> estimatedArmAngularVelocityRadiansPerSecond = 0.0;
             attribute :>> estimatedPendulumAngularVelocityRadiansPerSecond = 0.0;
             attribute :>> velocityFilterCutoffRadiansPerSecond = 50.0;
+            attribute :>> samplePeriodSeconds = 0.001;
         }
 
         part :>> amplifier {
-            attribute :>> enabled = true;
-            attribute :>> faulted = false;
-            attribute :>> maximumVoltageMagnitude = 15.0;
+            attribute :>> maximumVoltageMagnitude = 10.0;
             attribute :>> proposedVoltage = 0.0;
             attribute :>> executedVoltage = 0.0;
         }
 
         part :>> controller {
             #ScenarioInput attribute :>> targetArmAngleRadians = 0.0;
-            attribute :>> maximumVoltageMagnitude = 15.0;
             attribute :>> captureAngleRadians = 0.349065850399;
             attribute :>> completionArmAngleToleranceRadians = 0.017453292520;
             attribute :>> completionPendulumAngleToleranceRadians = 0.017453292520;
@@ -438,13 +422,10 @@ package RotaryInvertedPendulum {
         }
 
         #ScenarioConstraint constraint scenarioConstraints {
-            plant.pendulumAngleFromUprightRadians >=
-                0.0 - controller.captureAngleRadians and
-            plant.pendulumAngleFromUprightRadians <=
-                controller.captureAngleRadians and
             controller.targetArmAngleRadians >= -1.570796326795 and
             controller.targetArmAngleRadians <= 1.570796326795 and
-            amplifier.maximumVoltageMagnitude == controller.maximumVoltageMagnitude
+            plant.samplePeriodSeconds == samplePeriodSeconds and
+            encoder.samplePeriodSeconds == samplePeriodSeconds
         }
     }
 }
