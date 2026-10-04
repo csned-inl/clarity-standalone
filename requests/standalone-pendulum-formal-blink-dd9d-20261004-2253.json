@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-formal-blink-dd9d-20261004-2253",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "dd9d9d6f7a435df3e11ab28b7158c16046766cdd"
+  },
+  "command": "python3 continuous_pipeline.py --output runs/pendulum-formal-blink --nuxmv \"$HOME/tools/nuxmv/2.2.0/nuxmv-2.2.0.sh\" --timeout 300\npython3 -c 'import json; r=json.load(open(\"runs/pendulum-formal-blink/summary.json\")); print(json.dumps({\"formal_status\":r[\"formal\"][\"status\"],\"verified\":r[\"formal\"][\"verified\"],\"results\":r[\"formal\"].get(\"nuXmv_results\"),\"requirements\":r[\"formal\"].get(\"requirement_names\")},sort_keys=True))'",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
