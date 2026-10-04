@@ -1,0 +1,4 @@
+{
+  "schema": "clarity.compute.dependencies.v1",
+  "files": ["requirements.txt"]
+}
