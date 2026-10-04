@@ -16,7 +16,7 @@ from continuous_spec import ExactContinuousShield, UnsupportedContinuousContract
 
 
 MODEL = ROOT / "sysml-models/rotary-inverted-pendulum/model.sysml"
-EXTRACTOR = ROOT / "tmp_validation/mc_extract.py"
+EXTRACTOR = ROOT / "sysml-models/mc-extract.py"
 
 
 class ContinuousControllerPipelineTests(unittest.TestCase):
