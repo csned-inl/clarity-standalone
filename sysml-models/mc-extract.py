@@ -661,11 +661,20 @@ class SMVGenerator:
         ctrl_smv = self._smv(ctrl_fqn)
         call_name = call_stmt.name  # e.g. "policyCall"
 
-        # 1. Declare output params as boolean IVARs.
+        # 1. Declare output params using their SysML scalar type.  The three
+        # original models expose Boolean neural outputs, while continuous-
+        # action models expose Real outputs.
         param_to_smv: dict[str, str] = {}
         for p in neural_def.out_params:
             ivar_name = f"{ctrl_smv}_{call_name}_{p.name}"
-            self._bool_ivars.append(ivar_name)
+            if p.type_name == "Boolean":
+                self._bool_ivars.append(ivar_name)
+            elif p.type_name == "Real":
+                self._real_ivars.append(ivar_name)
+            else:
+                raise ValueError(
+                    f"unsupported #Neural output type {p.type_name!r} "
+                    f"for {p.name!r}")
             param_to_smv[p.name] = ivar_name
 
         # 2. Map input params to SMV expressions via InputBindingStmts.
