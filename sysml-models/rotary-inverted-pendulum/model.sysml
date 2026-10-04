@@ -193,16 +193,16 @@ package RotaryInvertedPendulum {
             if faulted or not enabled {
                 assign executedVoltage := 0.0;
             }
-            if not faulted and enabled and proposedVoltage > maximumVoltageMagnitude {
+            if not faulted and enabled and proposal.volts > maximumVoltageMagnitude {
                 assign executedVoltage := maximumVoltageMagnitude;
             }
-            if not faulted and enabled and proposedVoltage < 0.0 - maximumVoltageMagnitude {
+            if not faulted and enabled and proposal.volts < 0.0 - maximumVoltageMagnitude {
                 assign executedVoltage := 0.0 - maximumVoltageMagnitude;
             }
             if not faulted and enabled and
-               proposedVoltage <= maximumVoltageMagnitude and
-               proposedVoltage >= 0.0 - maximumVoltageMagnitude {
-                assign executedVoltage := proposedVoltage;
+               proposal.volts <= maximumVoltageMagnitude and
+               proposal.volts >= 0.0 - maximumVoltageMagnitude {
+                assign executedVoltage := proposal.volts;
             }
         }
 
