@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-bridge-smoke-20261004-2235",
+  "resolved_sha": "6ae3e9d7250217477182c01b45909fca313dcafd",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "6ae3e9d7250217477182c01b45909fca313dcafd",
+  "stderr_tail": "",
+  "stdout_tail": "clarity-standalone-bridge-ok\n",
+  "worker": "ubuntu-blink"
+}
