@@ -65,8 +65,8 @@ def main() -> int:
     try:
         observation_dimension = probe.obs_dim
         action_dimension = probe.action_dim
-        observation_keys = list(probe.observation_keys)
-        observation_scale = getattr(probe, "observation_scale", None)
+        observation_keys = list(getattr(probe, "_obs_keys", ()))
+        observation_scale = getattr(probe, "_obs_scale", None)
     finally:
         probe.close()
     if action_dimension != 1:
