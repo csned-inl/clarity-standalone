@@ -80,7 +80,9 @@ restricts issued proposals to `[-1, 1]` and requires zero duty for an invalid
 Hall code. The drive saturates that proposal, disables invalid Hall input, and
 projects valid-Hall duty onto the complete one-step interval obtained by
 solving the encoded forward-Euler current recurrence for
-`|current_next| <= 6 A`. An exact-model observer advances from the same initial
+`|current_next| <= 5.999999 A`. The one-microampere inner margin is an explicit
+binary64 execution guard for the outer exact `6 A` SysML requirement, not a
+physical tolerance. An exact-model observer advances from the same initial
 state with the same previous executed duty and the same coefficients as the
 plant. Source-shape and algebraic certificates check those equalities
 fail-closed.

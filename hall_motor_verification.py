@@ -22,7 +22,7 @@ from formal import verify_smv
 ROOT = Path(__file__).resolve().parent
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
 EXPECTED_SAFETY_SLICE_SHA256 = (
-    "dcfe3d8fa9003c4b36636b282a4861636f38c0c6d975e79064bc9d70e3144939"
+    "ac5dc6237375ab74b8cd88ab3491ee86b4a1b56f5cfabf76ae1e7aa9198a64a7"
 )
 
 POSITIVE_TABLE = {
@@ -80,6 +80,7 @@ class MotorSafetyContract:
     model_sha256: str
     maximum_duty_magnitude: float
     current_limit_amperes: float
+    current_projection_numerical_margin_amperes: float
     maximum_speed_radians_per_second: float
     maximum_target_radians_per_second: float
     completion_tolerance_radians_per_second: float
@@ -116,6 +117,8 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
 
     duty = _one_number(source, "maximumDutyMagnitude")
     current = _one_number(source, "configuredCurrentLimitAmperes")
+    current_margin = _one_number(
+        source, "currentProjectionNumericalMarginAmperes")
     speed = _one_number(
         source, "maximumAuthorizedMechanicalSpeedRadiansPerSecond")
     voltage = _shared_number(source, "dcBusVoltageVolts")
@@ -146,9 +149,11 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
     if float(lower_target[0]) != -target:
         raise ValueError("target interval must be symmetric")
 
-    if min(duty, current, speed, voltage, resistance, inductance, back_emf,
+    if min(duty, current, current_margin, speed, voltage, resistance, inductance, back_emf,
            torque, inertia, sample_period) <= 0.0:
         raise ValueError("motor safety constants must be strictly positive")
+    if current_margin >= current:
+        raise ValueError("current projection margin must be below current limit")
     if target <= 0.0 or target >= speed:
         raise ValueError("target envelope must be positive and below nameplate speed")
 
@@ -174,7 +179,8 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
 
     for label in (
         "currentSafeMinimumSignedDutyFraction :=",
-        "0.0 - configuredCurrentLimitAmperes -",
+        "0.0 - configuredCurrentLimitAmperes +",
+        "currentProjectionNumericalMarginAmperes -",
         "currentSafeMaximumSignedDutyFraction :=",
         "configuredCurrentLimitAmperes -",
         "boundedProposedSignedDutyFraction <",
@@ -238,6 +244,7 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
     return MotorSafetyContract(
         model=str(model), model_sha256=_sha256(model),
         maximum_duty_magnitude=duty, current_limit_amperes=current,
+        current_projection_numerical_margin_amperes=current_margin,
         maximum_speed_radians_per_second=speed,
         maximum_target_radians_per_second=target,
         completion_tolerance_radians_per_second=tolerance,
@@ -269,12 +276,16 @@ def _spectral_radius(contract: MotorSafetyContract) -> float:
 
 def _safe_interval(contract: MotorSafetyContract, current: float,
                    speed: float) -> tuple[float, float]:
+    inner_limit = (
+        contract.current_limit_amperes
+        - contract.current_projection_numerical_margin_amperes
+    )
     l_over_dt = contract.inductance_henries / contract.sample_period_seconds
     offset = (contract.resistance_ohms * current
               + contract.back_emf_volt_seconds_per_radian * speed)
-    lower = (l_over_dt * (-contract.current_limit_amperes - current)
+    lower = (l_over_dt * (-inner_limit - current)
              + offset) / contract.dc_bus_voltage_volts
-    upper = (l_over_dt * (contract.current_limit_amperes - current)
+    upper = (l_over_dt * (inner_limit - current)
              + offset) / contract.dc_bus_voltage_volts
     return lower, upper
 
@@ -388,6 +399,11 @@ def emit_smv(contract: MotorSafetyContract, destination: Path) -> Path:
     """Emit a compact real-arithmetic cross-check of the proof schema."""
     d = format(contract.maximum_duty_magnitude, ".17g")
     c = format(contract.current_limit_amperes, ".17g")
+    ci = format(
+        contract.current_limit_amperes
+        - contract.current_projection_numerical_margin_amperes,
+        ".17g",
+    )
     w = format(contract.maximum_speed_radians_per_second, ".17g")
     v = format(contract.dc_bus_voltage_volts, ".17g")
     r = format(contract.resistance_ohms, ".17g")
@@ -424,8 +440,8 @@ INVAR policy_proposal >= -{d} & policy_proposal <= {d}
 INVAR observer_current >= -{c} & observer_current <= {c}
 INVAR observer_speed >= -{w} & observer_speed <= {w}
 DEFINE
-  safe_lower := (((-{c} - observer_current) * {l} / {dt}) + {r} * observer_current + {ke} * observer_speed) / {v};
-  safe_upper := ((({c} - observer_current) * {l} / {dt}) + {r} * observer_current + {ke} * observer_speed) / {v};
+  safe_lower := (((-{ci} - observer_current) * {l} / {dt}) + {r} * observer_current + {ke} * observer_speed) / {v};
+  safe_upper := ((({ci} - observer_current) * {l} / {dt}) + {r} * observer_current + {ke} * observer_speed) / {v};
   feasible := safe_lower <= {d} & safe_upper >= -{d};
   bounded_proposal := case
     policy_proposal > {d} : {d};

@@ -469,6 +469,7 @@ package HallSensoredBrushlessMotor {
         #ModelAssumption attribute effectiveBenchInertiaKilogramMetersSquared : Real;
         attribute currentSafetySamplePeriodSeconds : Real;
         attribute configuredCurrentLimitAmperes : Real;
+        attribute currentProjectionNumericalMarginAmperes : Real;
         attribute maximumAuthorizedMechanicalSpeedRadiansPerSecond : Real;
         attribute safetyObserverMechanicalSpeedRadiansPerSecond : Real;
         attribute safetyObserverPairCurrentAmperes : Real;
@@ -564,8 +565,12 @@ package HallSensoredBrushlessMotor {
             // Solving the encoded electrical recurrence for duty gives the
             // complete interval that keeps the following physical current in
             // [-configuredCurrentLimitAmperes, configuredCurrentLimitAmperes].
+            // The explicit inner margin prevents binary64 roundoff at exactly
+            // +/-6 A from falsifying the outer SysML safety requirement; the
+            // mathematical certificate proves the stronger inner bound.
             assign currentSafeMinimumSignedDutyFraction :=
-                (((0.0 - configuredCurrentLimitAmperes -
+                (((0.0 - configuredCurrentLimitAmperes +
+                    currentProjectionNumericalMarginAmperes -
                     safetyObserverPairCurrentAmperes) *
                     effectivePairInductanceHenries /
                     currentSafetySamplePeriodSeconds) +
@@ -576,6 +581,7 @@ package HallSensoredBrushlessMotor {
                     dcBusVoltageVolts;
             assign currentSafeMaximumSignedDutyFraction :=
                 (((configuredCurrentLimitAmperes -
+                    currentProjectionNumericalMarginAmperes -
                     safetyObserverPairCurrentAmperes) *
                     effectivePairInductanceHenries /
                     currentSafetySamplePeriodSeconds) +
@@ -1002,6 +1008,9 @@ package HallSensoredBrushlessMotor {
                 0.000012;
             attribute :>> currentSafetySamplePeriodSeconds = 0.00005;
             attribute :>> configuredCurrentLimitAmperes = 6.0;
+            // Project to 5.999999 A so binary64 execution remains strictly
+            // inside the exact 6 A requirement checked by the runtime.
+            attribute :>> currentProjectionNumericalMarginAmperes = 0.000001;
             // Published 9000 rpm motor nameplate, used as an execution stop;
             // this is distinct from the conservative 4000 rpm target range.
             attribute :>> maximumAuthorizedMechanicalSpeedRadiansPerSecond =

@@ -74,6 +74,8 @@ class HallSensoredBldcModelTests(unittest.TestCase):
             "system::plant::rotorInertiaKilogramMetersSquared": 0.000012,
             "system::plant::polePairs": 2.0,
             "system::drive::configuredCurrentLimitAmperes": 6.0,
+            "system::drive::currentProjectionNumericalMarginAmperes":
+                0.000001,
             "system::sensor::dcBusVoltageVolts": 12.0,
         }
         for key, value in expected.items():
@@ -290,11 +292,15 @@ class HallSensoredBldcModelTests(unittest.TestCase):
                 proposal["value"] = 1.0 if proposal["value"] < 0.0 else -1.0
             engine.step(0.00005)
             current = engine.state["system::plant::energizedPairCurrentAmperes"]
+            projected = engine.state[
+                "system::drive::projectedNextPairCurrentAmperes"
+            ]
             peak_current = max(peak_current, abs(current))
             self.assertIs(
                 engine.state["system::drive::currentSafetyFeasible"], True
             )
             self.assertLessEqual(abs(current), 6.0 + 1e-9)
+            self.assertLessEqual(abs(projected), 6.0)
         self.assertGreater(peak_current, 5.9)
 
     def test_scenario_target_uses_pinned_nominal_profile_not_nameplate_speed(self):

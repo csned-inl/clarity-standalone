@@ -52,6 +52,10 @@ class HallMotorVerificationTests(unittest.TestCase):
         certificate = certify_structure(contract)
 
         self.assertTrue(certificate["proved"])
+        self.assertEqual(
+            contract.current_projection_numerical_margin_amperes,
+            0.000001,
+        )
         self.assertEqual(len(certificate["checks"]), 21)
         self.assertIn(
             "physical pair current in the encoded forward-Euler process",
@@ -104,8 +108,10 @@ class HallMotorVerificationTests(unittest.TestCase):
     def test_projection_drift_is_rejected_before_proof(self):
         source = MODEL.read_text().replace(
             "configuredCurrentLimitAmperes -\n"
+            "                    currentProjectionNumericalMarginAmperes -\n"
             "                    safetyObserverPairCurrentAmperes",
             "configuredCurrentLimitAmperes +\n"
+            "                    currentProjectionNumericalMarginAmperes -\n"
             "                    safetyObserverPairCurrentAmperes",
             1,
         )

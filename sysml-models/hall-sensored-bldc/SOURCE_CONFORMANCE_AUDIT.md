@@ -55,7 +55,7 @@ the unavailable NXP gains. At every 50 microsecond plant step it:
 1. advances an observer using the plant's exact initial state, previous
    executed duty, coefficients, and forward-Euler recurrence;
 2. solves the electrical recurrence algebraically for the full duty interval
-   that makes the next pair current lie in `[-6 A, 6 A]`; and
+   that makes the next pair current lie in `[-5.999999 A, 5.999999 A]`; and
 3. projects the bounded policy proposal onto that interval, or shuts down if
    the interval is infeasible.
 
@@ -70,6 +70,13 @@ bound unmodeled switching ripple in hardware.
 The exact reference controller still requires its configured threshold, PI
 gains, numerical scaling, saturation behavior, integrator initial state, and
 integrator synchronization semantics.
+
+The one-microampere difference between the projected inner interval and the
+outer 6 A requirement is an explicit numerical guard. Without it, binary64
+roundoff can print as exactly `-6.0` while evaluating a few ulps below `-6.0`,
+spuriously failing the exact runtime inequality. The real-arithmetic proof
+checks the stronger inner interval; the guard is not presented as sensor or
+hardware uncertainty.
 
 ### Target envelope
 

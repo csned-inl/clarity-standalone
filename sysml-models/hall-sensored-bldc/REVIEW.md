@@ -33,6 +33,7 @@ not transferable merely because they use the same motor.
 | Current sample period | NXP S32M244 Hall reference | `50 microseconds` |
 | Speed/current action period | NXP S32M244 Hall reference | both controller functions execute every `1 millisecond` |
 | Current limiting | NXP S32M244 Hall reference versus CLARITY model design | source uses two PI outputs and synchronized integrators; executable model uses an explicitly non-equivalent 50 us exact-model duty projection because exact gains/state are unavailable |
+| Numerical current guard | CLARITY execution design | projection uses a 5.999999 A inner interval to preserve the exact 6 A requirement under binary64 evaluation |
 | Plant realization | CLARITY model design | nominal scalar two-conducting-phase relation, explicit effective coefficients, zero-load/zero-loss profile, and forward Euler |
 | Target envelope | NXP exact-part parameter profile | symmetric target capped at published `N_nom=4000 rpm`; 9000 rpm remains nameplate safety envelope |
 | Completion tolerance | CLARITY scenario design | 5 rad/s project-defined completion threshold |
