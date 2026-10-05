@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-runtime-diagnostic-20261005-123047",
+  "resolved_sha": "fc642328e6458dea54217bb7c916ad9c9af51785",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "fc642328e6458dea54217bb7c916ad9c9af51785",
+  "stderr_tail": "",
+  "stdout_tail": "RUNTIME_MODULES\n[\n  {\n    \"module\": \"env\",\n    \"path\": \"/Users/csned/clarity-jobs/2607e0d3d2bf75d9d977c592/rl/env.py\",\n    \"sha256\": \"420a573a4c9209ff1a7dc5d4ae72d8ce759c0f263067737967277fb63633cd85\"\n  },\n  {\n    \"module\": \"requirement_events\",\n    \"path\": \"/Users/csned/clarity-jobs/2607e0d3d2bf75d9d977c592/sysml-models/requirement_events.py\",\n    \"sha256\": \"5923d92897ca34e79ea9b77ca67ad639449fa3665e602aa8cdadf6c5a9191d77\"\n  }\n]\nSYSML_ENV_SIGNATURE (self, model_path: str, dt: float = 0.1, max_steps: int = 1200, phase: int = 1, rng_seed: int = None)\nENVIRONMENT\n{\n  \"completion_key\": null,\n  \"neural_inputs\": [\n    {\n      \"metadata\": [],\n      \"name\": \"estimatedMechanicalSpeedRadiansPerSecond\"\n    },\n    {\n      \"metadata\": [],\n      \"name\": \"sampledPairCurrentAmperes\"\n    },\n    {\n      \"metadata\": [],\n      \"name\": \"hallCode\"\n    },\n    {\n      \"metadata\": [],\n      \"name\": \"targetMechanicalSpeedRadiansPerSecond\"\n    },\n    {\n      \"metadata\": [\n        \"Completion\"\n      ],\n      \"name\": \"done\"\n    }\n  ],\n  \"obs_dim\": 5,\n  \"obs_keys\": [\n    \"estimatedMechanicalSpeedRadiansPerSecond\",\n    \"sampledPairCurrentAmperes\",\n    \"hallCode\",\n    \"targetMechanicalSpeedRadiansPerSecond\",\n    \"done\"\n  ],\n  \"obs_scale\": 314.159265358979,\n  \"scenario_inputs\": {\n    \"system::controller::targetMechanicalSpeedRadiansPerSecond\": {\n      \"default\": 314.159265358979,\n      \"lower\": -942.477796076938,\n      \"upper\": 942.477796076938\n    }\n  }\n}\n",
+  "worker": "macbook"
+}
