@@ -29,11 +29,13 @@ class ContinuousTrainingModeTests(unittest.TestCase):
 
     def test_proposal_penalty_is_smooth_and_capped(self):
         self.assertEqual(proposal_penalty(
-            0.0, penalty_fraction=0.15, action_error_scale=10.0), 0.0)
+            0.0, penalty_cap=1.0, action_error_scale=10.0), 0.0)
         self.assertAlmostEqual(proposal_penalty(
-            5.0, penalty_fraction=0.15, action_error_scale=10.0), -0.075)
-        self.assertEqual(proposal_penalty(
-            20.0, penalty_fraction=0.15, action_error_scale=10.0), -0.15)
+            5.0, penalty_cap=1.0, action_error_scale=10.0), -1.0 / 3.0)
+        self.assertAlmostEqual(proposal_penalty(
+            20.0, penalty_cap=1.0, action_error_scale=10.0), -2.0 / 3.0)
+        self.assertGreater(proposal_penalty(
+            1_000.0, penalty_cap=1.0, action_error_scale=10.0), -1.0)
 
     def test_executed_credit_does_not_penalize_safe_intervention(self):
         mode = next(
@@ -41,15 +43,26 @@ class ContinuousTrainingModeTests(unittest.TestCase):
             if row.name == "shielded_executed_credit")
         self.assertEqual(training_reward(
             mode, 1.0, 100.0,
-            penalty_fraction=0.15, action_error_scale=10.0), 1.0)
+            comparison_abs_tol=1e-6,
+            penalty_cap=1.0, action_error_scale=10.0), 1.0)
 
-    def test_proposal_credit_retains_safe_execution_reward_and_penalty(self):
+    def test_proposal_punishment_replaces_environment_reward(self):
         mode = next(
             row for row in TRAINING_MODES
             if row.name == "shielded_proposal_credit")
         self.assertAlmostEqual(training_reward(
             mode, 1.0, 5.0,
-            penalty_fraction=0.15, action_error_scale=10.0), 0.925)
+            comparison_abs_tol=1e-6,
+            penalty_cap=1.0, action_error_scale=10.0), -1.0 / 3.0)
+
+    def test_compliant_proposal_receives_reward_without_punishment(self):
+        mode = next(
+            row for row in TRAINING_MODES
+            if row.name == "shielded_proposal_credit")
+        self.assertEqual(training_reward(
+            mode, 1.0, 0.0,
+            comparison_abs_tol=1e-6,
+            penalty_cap=1.0, action_error_scale=10.0), 1.0)
 
 
 if __name__ == "__main__":

@@ -23,18 +23,21 @@ executed and violates a requirement terminates the episode.
 ## Reward
 
 The simulator retains the existing CLARITY rewards: `+1` for terminal
-success, `-0.01` while running, and `0` at truncation.  Modes that credit the
-original proposal add
+success, `-0.01` while running, and `0` at truncation. Modes that credit the
+original proposal use
 
 ```text
--penalty_fraction * min(abs(proposal - required_action) / action_error_scale, 1)
+-penalty_cap * abs(proposal - required_action) /
+    (action_error_scale + abs(proposal - required_action))
 ```
 
-The preliminary configuration uses `penalty_fraction = 0.15`, between one
-tenth and one fifth of the final success reward, and a 10 V error scale.  The
-penalty is continuous rather than a binary equality failure: an exact
-real-valued contract would otherwise assign the same penalty to almost every
-sample from a Gaussian policy and provide no useful learning signal.
+The current configuration uses `penalty_cap = 1.0` and a 10 V error scale.
+The penalty approaches `-1` but never becomes flat at any finite error. A
+noncompliant original proposal receives this punishment **instead of** the
+environment reward; reward and punishment are never applied simultaneously.
+A proposal within the contract tolerance receives the ordinary environment
+reward. The continuous penalty avoids assigning the same value to almost
+every sample from a Gaussian policy.
 
 The executed-credit shield mode deliberately omits this proposal penalty.  It
 tests the alternative in which learning credit follows the replacement that

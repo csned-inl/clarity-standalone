@@ -38,7 +38,7 @@ MODEL = ROOT / "sysml-models" / "rotary-inverted-pendulum" / "model.sysml"
 
 
 def _episode(env, model, shield, mode, device, *, greedy,
-             penalty_fraction, action_error_scale):
+             penalty_cap, action_error_scale):
     observation = env.reset()
     hidden = model.initial_hidden(1).to(device)
     trajectory = {
@@ -71,7 +71,8 @@ def _episode(env, model, shield, mode, device, *, greedy,
         next_observation, environment_reward, done, info = env.step([executed])
         reward = training_reward(
             mode, environment_reward, correction,
-            penalty_fraction=penalty_fraction,
+            comparison_abs_tol=shield.comparison_abs_tol,
+            penalty_cap=penalty_cap,
             action_error_scale=action_error_scale)
         trajectory["observations"].append(observation)
         trajectory["actions"].append([credited])
@@ -116,7 +117,7 @@ def _summarize(rows):
 def run_mode(model_path, out_dir, initial_state, mode, *,
              observation_dimension, action_dimension, device, seed,
              episodes, episodes_per_update, evaluation_episodes, max_steps,
-             penalty_fraction, action_error_scale, dt):
+             penalty_cap, action_error_scale, dt):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -136,7 +137,7 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
         for number in range(1, episodes + 1):
             trajectory, stats = _episode(
                 environment, policy, shield, mode, device, greedy=False,
-                penalty_fraction=penalty_fraction,
+                penalty_cap=penalty_cap,
                 action_error_scale=action_error_scale)
             if stats["error"]:
                 raise RuntimeError(stats["error"])
@@ -166,7 +167,7 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
         for _ in range(evaluation_episodes):
             _trajectory, stats = _episode(
                 evaluation_environment, policy, shield, mode, device,
-                greedy=True, penalty_fraction=penalty_fraction,
+                greedy=True, penalty_cap=penalty_cap,
                 action_error_scale=action_error_scale)
             evaluation.append(stats)
     finally:
@@ -200,7 +201,7 @@ def main():
     parser.add_argument("--evaluation-episodes", type=int, default=20)
     parser.add_argument("--max-steps", type=int, default=3000)
     parser.add_argument("--dt", type=float, default=0.001)
-    parser.add_argument("--penalty-fraction", type=float, default=0.15)
+    parser.add_argument("--penalty-cap", type=float, default=1.0)
     parser.add_argument("--action-error-scale", type=float, default=10.0)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
@@ -209,8 +210,8 @@ def main():
     if min(args.episodes, args.episodes_per_update,
            args.evaluation_episodes, args.max_steps) <= 0:
         parser.error("episode and step counts must be positive")
-    if not 0.1 <= args.penalty_fraction <= 0.2:
-        parser.error("penalty fraction must be between 0.1 and 0.2")
+    if args.penalty_cap <= 0.0:
+        parser.error("penalty cap must be positive")
 
     device = select_torch_device(args.device)
     shield = ExactContinuousShield(str(args.model.resolve()))
@@ -245,7 +246,7 @@ def main():
             episodes_per_update=args.episodes_per_update,
             evaluation_episodes=args.evaluation_episodes,
             max_steps=args.max_steps,
-            penalty_fraction=args.penalty_fraction,
+            penalty_cap=args.penalty_cap,
             action_error_scale=args.action_error_scale,
             dt=args.dt))
     report = {
@@ -258,7 +259,7 @@ def main():
         "episodes_per_mode": args.episodes,
         "evaluation_episodes_per_mode": args.evaluation_episodes,
         "max_steps": args.max_steps,
-        "penalty_fraction_of_terminal_success": args.penalty_fraction,
+        "proposal_penalty_cap": args.penalty_cap,
         "action_error_scale": args.action_error_scale,
         "observation_dimension": observation_dimension,
         "action_dimension": action_dimension,

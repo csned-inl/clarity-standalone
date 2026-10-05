@@ -33,28 +33,28 @@ TRAINING_MODES = (
 )
 
 
-def proposal_penalty(correction: float, *, penalty_fraction: float,
+def proposal_penalty(correction: float, *, penalty_cap: float,
                      action_error_scale: float) -> float:
-    """Return a bounded, continuous penalty for deviation from the contract."""
-    if (not math.isfinite(penalty_fraction)
-            or not 0.0 <= penalty_fraction <= 1.0):
-        raise ValueError("penalty_fraction must be between zero and one")
+    """Return a bounded, non-flat penalty for deviation from the contract."""
+    if not math.isfinite(penalty_cap) or penalty_cap <= 0.0:
+        raise ValueError("penalty_cap must be finite and positive")
     if not math.isfinite(action_error_scale) or action_error_scale <= 0.0:
         raise ValueError("action_error_scale must be finite and positive")
     if not math.isfinite(correction) or correction < 0.0:
-        return -penalty_fraction
-    return -penalty_fraction * min(correction / action_error_scale, 1.0)
+        return -penalty_cap
+    return -penalty_cap * correction / (action_error_scale + correction)
 
 
 def training_reward(mode: ContinuousTrainingMode, environment_reward: float,
-                    correction: float, *, penalty_fraction: float,
-                    action_error_scale: float) -> float:
-    """Apply proposal credit only in modes that explicitly request it."""
+                    correction: float, *, comparison_abs_tol: float,
+                    penalty_cap: float, action_error_scale: float) -> float:
+    """Choose either environment reward or proposal punishment, never both."""
     reward = float(environment_reward)
-    if mode.credit_action == "executed":
+    if (mode.credit_action == "executed"
+            or correction <= comparison_abs_tol):
         return reward
-    return reward + proposal_penalty(
+    return proposal_penalty(
         correction,
-        penalty_fraction=penalty_fraction,
+        penalty_cap=penalty_cap,
         action_error_scale=action_error_scale,
     )
