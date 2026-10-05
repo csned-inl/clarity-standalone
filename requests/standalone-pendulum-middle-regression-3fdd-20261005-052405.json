@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-middle-regression-3fdd-20261005-052405",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "3fdd1cc3a34dbd6adb66eaad791695e6557fdab6"
+  },
+  "command": "python3 -m unittest discover -s tests -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
