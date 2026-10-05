@@ -38,7 +38,7 @@ class HallSensoredBldcModelTests(unittest.TestCase):
             ],
         )
         self.assertEqual(len(self.parser.part_instances), 4)
-        self.assertEqual(len(self.parser.parsed_requirements), 4)
+        self.assertEqual(len(self.parser.parsed_requirements), 5)
         transitions = self.parser.instance_state_machines[
             "system::drive"
         ].transitions

@@ -759,6 +759,29 @@ package HallSensoredBrushlessMotor {
         }
 
         #Prohibition
+        requirement def 'Valid Hall Commutation Uses Distinct Phases' {
+            doc /* Every valid Hall input shall select one high-side PWM phase, one different low-side ON phase, and the remaining disconnected phase. */
+            subject s : HallSensoredBrushlessMotorSystem;
+            require constraint {
+                (s.drive.sampledHallCode >= 1 and
+                 s.drive.sampledHallCode <= 6)
+                    implies
+                    (s.drive.highSidePwmPhase >= 1 and
+                     s.drive.highSidePwmPhase <= 3 and
+                     s.drive.lowSideOnPhase >= 1 and
+                     s.drive.lowSideOnPhase <= 3 and
+                     s.drive.disconnectedPhase >= 1 and
+                     s.drive.disconnectedPhase <= 3 and
+                     not (s.drive.highSidePwmPhase ==
+                        s.drive.lowSideOnPhase) and
+                     not (s.drive.highSidePwmPhase ==
+                        s.drive.disconnectedPhase) and
+                     not (s.drive.lowSideOnPhase ==
+                        s.drive.disconnectedPhase))
+            }
+        }
+
+        #Prohibition
         requirement def 'Current Limit Surrogate Opposes Further Increase' {
             doc /* At each controller update, the project-defined surrogate rejects same-direction proposed duty at the configured measured-current boundary. */
             subject s : HallSensoredBrushlessMotorSystem;

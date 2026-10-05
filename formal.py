@@ -176,6 +176,54 @@ def _run_direct_certificate(
     }
 
 
+def verify_smv(smv: Path, out_dir: Path, *, nuxmv: Path,
+               timeout_seconds: int = 300,
+               model: Path | None = None) -> dict:
+    """Check an already-compiled SMV file one invariant per process.
+
+    This is the shared semantic stage for compact proof-specific compilers.
+    It deliberately performs no SysML extraction and therefore cannot expand
+    a compact safety slice back into a simulator control graph.
+    """
+    smv = smv.resolve()
+    nuxmv = nuxmv.resolve()
+    out_dir.mkdir(parents=True, exist_ok=False)
+    source = smv.read_text()
+    obligations = _invariant_obligations(source)
+    if not obligations:
+        raise RuntimeError("SMV model contains no checkable invariant obligations")
+
+    obligation_root = out_dir / "obligations"
+    obligation_root.mkdir()
+    results = []
+    for obligation in obligations:
+        directory = obligation_root / (
+            f"{obligation.index:03d}-{_slug(obligation.name)}")
+        results.append(_run_obligation(
+            obligation, source, directory, nuxmv, timeout_seconds))
+
+    requirement_results = [
+        result for result in results if result["kind"] == "requirement"]
+    verified = bool(results) and all(
+        result["status"] == "proved" for result in results)
+    report = {
+        "model": None if model is None else str(model.resolve()),
+        "model_sha256": (
+            None if model is None else _sha256(model.resolve())),
+        "smv": str(smv),
+        "smv_sha256": _sha256(smv),
+        "method": "isolated-check_invar_ic3-on-precompiled-slice",
+        "timeout_seconds_per_obligation": timeout_seconds,
+        "emitted_invarspec_count": len(obligations),
+        "requirement_count": len(requirement_results),
+        "obligations": results,
+        "verified": verified,
+    }
+    (out_dir / "verification.json").write_text(
+        json.dumps(report, indent=2, sort_keys=True) + "\n")
+    return report
+
+
 def verify(model: Path, out_dir: Path, *, dt: float, nuxmv: Path,
            timeout_seconds: int = 300,
            obligation_certifiers: dict[
