@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 1,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-pendulum-formal-nonenvelope-426e-20261005-0155",
+  "resolved_sha": "426ef0d3a29a6d97d7a69823efe05f81365fecb2",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "426ef0d3a29a6d97d7a69823efe05f81365fecb2",
+  "stderr_tail": "Traceback (most recent call last):\n  File \"<stdin>\", line 8, in <module>\nAssertionError: [('Motor Voltage Within Authorized Range', 'requirement'), ('Controller Supplies State Feedback', 'requirement'), ('Auxiliary invariant 4', 'auxiliary'), ('Auxiliary invariant 5', 'auxiliary'), ('Auxiliary invariant 6', 'auxiliary'), ('Auxiliary invariant 7', 'auxiliary')]\n",
+  "stdout_tail": "Wrote runs/pendulum-formal-nonenvelope/model.smv\n",
+  "worker": "ubuntu-blink"
+}
