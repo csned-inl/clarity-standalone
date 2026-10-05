@@ -1136,8 +1136,17 @@ class SMVGenerator:
                 assign_expr = assigns_snap.get(
                     (send_stmt.item_name, attr_suffix))
                 if assign_expr is not None:
-                    smv_val = self._to_smv_with_accept_map(
-                        assign_expr, ctrl_fqn, accept_map)
+                    # Assignments in an entry step are state updates at phase
+                    # 0.  A send at a later scan phase must transmit that
+                    # latched item field, not re-evaluate the RHS against a
+                    # newer observation at the send phase.
+                    item_target = (
+                        f"{ctrl_fqn}::{send_stmt.item_name}::{attr_suffix}")
+                    if step_action and item_target in self._sa_keys:
+                        smv_val = self._smv(item_target)
+                    else:
+                        smv_val = self._to_smv_with_accept_map(
+                            assign_expr, ctrl_fqn, accept_map)
                     trigvar_entries.setdefault(ivar_name, []).append(
                         (ph, cond, smv_val))
 

@@ -104,6 +104,11 @@ class ContinuousControllerPipelineTests(unittest.TestCase):
         )
         self.assertIn(
             "amplifier_proposal_volts := "
+            "controller_command_volts;",
+            source,
+        )
+        self.assertNotIn(
+            "amplifier_proposal_volts := "
             "controller_policyCall_proposedMotorVoltage;",
             source,
         )
