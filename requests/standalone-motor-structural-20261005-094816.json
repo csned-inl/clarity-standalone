@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-structural-20261005-094816",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "d30708e71547e3f2d5c5430edbf6a402a6a579b0"
+  },
+  "command": "python3 -m unittest tests.test_hall_motor_verification tests.test_hall_sensored_bldc_model tests.test_formal_isolation -v && python3 hall_motor_verification.py --output runs/standalone-motor-structural-20261005-094816 && python3 - <<'PY'\nimport json\nfrom pathlib import Path\np=Path(\"runs/standalone-motor-structural-20261005-094816/verification.json\")\nr=json.loads(p.read_text())\nprint(json.dumps({\"structural_verified\":r[\"structural_verified\"],\"nuxmv_verified\":r[\"nuxmv_verified\"],\"check_count\":len(r[\"structural\"][\"checks\"])},indent=2,sort_keys=True))\nif not r[\"structural_verified\"] or r[\"nuxmv_verified\"] is not None:\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 1,
+    "min_memory_mb": 2000
+  }
+}
