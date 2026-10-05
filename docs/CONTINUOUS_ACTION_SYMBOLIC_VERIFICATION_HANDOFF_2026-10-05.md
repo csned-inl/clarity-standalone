@@ -1,92 +1,220 @@
 # Continuous-action and symbolic-verification handoff — 2026-10-05
 
-## Read this first
+## Purpose and audit status
 
-The active implementation repository is **`csned-inl/clarity-standalone`**. The active continuous-motor branch is **`codex/hall-sensored-bldc-model`**. The pending training request is pinned to source commit **`429e7d87efe21164836ec93eebca344122fd5e4f`**.
+This document hands the work to a new session. It was checked against the source branches, proof documents, test files, commit history, and compute receipts rather than reconstructed only from conversation.
 
-The older **`csned-inl/fitter-artifact`** repository is useful for the generic symbolic-process, Markov, structural-discretization, and method-validation implementations, but it is **not model-source ground truth**. Do not copy an OT model from `fitter-artifact` over a reviewed `clarity-standalone` model. The standalone SysML sources and their pinned reference material control model fidelity.
+This revision corrects two material errors in the first draft:
 
-The governing architecture is:
+1. The implemented structural discretization checker does **not** yet prove a general physical Lipschitz inter-sample bound. It proves a narrower atomic/held-state property for recognized source requirements. A derivative/Lipschitz physical-margin rule remains future work.
+2. The 2,000-episode motor request is no longer pending. It returned **incomplete** with exit code 255 after only 110 episodes of its first mode. It produced useful progress lines but no completed comparison or evaluation result.
 
-> Parse the mathematical process specified by SysML directly, preserve physical state, sensed state, fixed context, timing, action execution, and safety properties as distinct symbols, and use the least expensive sound proof method that recognizes the resulting structure. Unsupported structure passes to a stronger fallback; it is never guessed, silently simplified, or certified by timeout.
+The replacement 500-episode motor request remains pending at the time of this revision.
 
-For the Markov work, the non-negotiable narrower statement remains:
+## Non-negotiable project direction
 
-> Give Z3 only the minimal information needed to prove whether the buffered controller-facing process is Markov. Do not recreate the simulator control graph.
+The SysML model is the formal process being studied. The proof pipeline must compile the mathematics and constraints expressed by that model directly. It must not compile a simulator and then symbolically reconstruct the mathematics from the simulator's procedural control graph.
 
-## Repositories and current branches
+The central Markov rule is:
 
-| Repository | Branch / revision | Purpose |
+> THE PLAN IS TO GIVE THE MINIMAL AMOUNT OF INFORMATION TO Z3 TO PROVE THE BUFFERED CONTROLLER IS MARKOV. IF YOU BEGIN TO DO OTHERWISE STOP PRODUCTION IMMEDIATELY AND CALL FOR MY HELP.
+
+The broader verification rule is:
+
+> Preserve every distinction that can affect a theorem—physical versus sensed state, proposed versus shielded versus plant-executed action, fixed context versus observation, plant time versus controller time, and safety property versus transition assumption—and use the cheapest sound proof rule that recognizes the resulting symbolic structure. Unsupported structure passes through; it is never guessed or certified by timeout.
+
+## Source authority and repositories
+
+| Repository | Branch / revision | Authority and role |
 | --- | --- | --- |
-| `csned-inl/clarity-standalone` | `codex/hall-sensored-bldc-model`, training source pinned at `429e7d8` | Reviewed continuous-action SysML models, extraction, safety proofs, training, and runner-facing experiments |
-| `csned-inl/clarity-standalone` | `compute-requests` | Requests consumed by the personal compute bridge |
-| `csned-inl/clarity-standalone` | `compute-results` | Runner result receipts |
-| `csned-inl/fitter-artifact` | `codex/thermostat-symbolic-machine`, currently `7749466` | Generic direct-SysML symbolic process, structural Markov/discretization checks, Z3 fallback, and method-logic validation |
+| `csned-inl/clarity-standalone` | `codex/hall-sensored-bldc-model`; motor training source `429e7d87efe21164836ec93eebca344122fd5e4f` | Authoritative reviewed SysML models for this work; continuous-action extraction, verification, training, and runner experiments |
+| `csned-inl/clarity-standalone` | `compute-requests` | Asynchronous personal-runner requests |
+| `csned-inl/clarity-standalone` | `compute-results` | Immutable runner receipts and output tails |
+| `csned-inl/fitter-artifact` | `codex/thermostat-symbolic-machine`; reviewed here at `77494663012487cad802bb4b99ee940e39d43010` | Generic direct-SysML symbolic-process, Markov, structural-discretization, and method-validation research |
 
-Do not merge the two repositories conceptually: `clarity-standalone` supplies the reviewed model and executable continuous-controller pipeline; `fitter-artifact` contains generic certification research that may be ported only deliberately.
+`fitter-artifact` is **not model-source authority**. A model copy there is usable only after a byte-for-byte identity check against the corresponding `clarity-standalone` source and recorded Git blob. Generated SMV, simulator traces, old certificates, backups, and prior agent work are also non-authoritative.
 
-## What has been built
+External reference fidelity and formal proof soundness are different obligations:
 
-### 1. Direct symbolic process representation
+- the model must be traceable to one coherent authoritative process description, compatible specification family, or measured device;
+- the proof must correctly establish its claim about that exact model;
+- neither obligation substitutes for the other.
 
-The earlier Markov effort was corrected after an implementation mistakenly encoded the simulator control graph and caused solver blow-up. The replacement treats the SysML mathematical specification as the primitive:
+Do not blend unrelated device specifications to fill gaps. Missing data must be identified as a model assumption, excluded behavior, or an explicit reason the claim cannot be made.
 
-- true physical variables remain distinct from delayed or sampled sensor variables;
-- proposed, shielded, and physically executed actions remain distinct;
-- fixed process context and scenario inputs are explicit;
-- transition equations, inequalities, obligations, prohibitions, delays, tolerances, and terminal conditions are represented directly;
-- source hashes and fail-closed shape checks prevent silent semantic drift.
+## Direct symbolic-process and Markov work
 
-Relevant generic files in `fitter-artifact` include:
+### What replaced the failed simulator encoding
+
+The first Markov attempt expanded the simulator control graph, scheduler paths, events, and guarded branches into Z3. It was sound in spirit but violated the goal, generated large formulas, timed out, and repeated the failure mode of the older project.
+
+The replacement pipeline treats source equations as the primitive and builds only the controller-boundary relation required by the exact query. The symbolic representation keeps:
+
+- physical state;
+- sampled or delayed sensor state;
+- proposed action;
+- optional shield/execution relation;
+- plant-executed action;
+- fixed process context and scenario inputs;
+- explicit finite memory, phase, delay, and queue state when required;
+- transition equations and guards;
+- observation, completion, reward, termination, and error projections;
+- the exact buffer recurrence.
+
+The simulator is outside the proof path. It remains useful for testing, counterexample replay, and training.
+
+### Current implemented Markov profile
+
+The generic profile in `fitter-artifact` takes one model path rather than dispatching by model name:
+
+```text
+prove_markov(model_path)
+```
+
+Relevant implementation:
 
 - `src/clarity/certification/symbolic_process.py`
 - `src/clarity/certification/ot_markov.py`
 - `src/clarity/certification/structural_markov.py`
 - `src/clarity/certification/controller_class_analysis.py`
-- `src/clarity/certification/structural_discretization.py`
-- `src/clarity/certification/discretization_semantic_validation.py`
-- `src/clarity/certification/method_implementation_validation.py`
 - `scripts/prove_markov.py`
+- `docs/OT_MARKOV_SYSML_PROFILE.md`
+- `docs/SYSML_DIRECT_MARKOV_CERTIFICATION_ARCHITECTURE.md`
+- `docs/BUFFER_CANDIDATE_ANALYSIS.md`
+
+Profile 0.1 is deliberately narrow. It recognizes the structural conventions of the reviewed Thermostat, Mixing Machine, and Cruise Controller sources and currently requires Boolean policy outputs. It is not arbitrary SysML, a general probabilistic verifier, or yet the continuous-action Markov checker.
+
+Current source-derived buffer candidates are:
+
+| Model | Prior observations | Prior executed actions | Reason |
+| --- | ---: | ---: | --- |
+| Thermostat | 0 | 1 | Current observation supplies temperature and setpoint; one prior executed action reconstructs pre-decision actuator latches used by completion |
+| Mixing Machine | 0 | 0 | At the policy boundary, the sampled levels plus fixed tolerance reconstruct the relevant physical values; incoming actuator state is overwritten before the selected result |
+| Cruise Controller | 0 | 1 | Current observation plus one prior executed action reconstructs the selected controller-boundary result |
+
+The current tests establish two distinct routes:
+
+- the one-way structural fast path positively certifies all three recognized models without importing Z3 or executing a simulator;
+- the generic Z3 backend independently certifies the same candidates under the supported profile, including initialization, shield totality/uniqueness, and paired successor factorization.
+
+The candidate generator alone never certifies Markovness. An unresolved reconstruction yields no candidate. A positive certificate requires the structural theorem or the paired semantic proof.
+
+The shield boundary is model-agnostic:
+
+- with a recognized NeuralRequirement, the execution relation is keep-or-replace/projection as compiled from the source contract;
+- without a shield contract, execution is identity;
+- the Markov theorem is about the resulting shielded or unshielded controller-facing process, whichever is actually specified.
+
+### Structural-analysis scope
+
+`controller_class_analysis.py` statically classifies algebraic and dependency shape. It can eliminate impossible controller classes and choose promising proof/training fallbacks without running the process. Shape analysis alone is not a semantic Markov proof unless a reviewed structural theorem explicitly connects that shape to the property.
+
+The intended cascade is:
+
+1. syntactic/source-shape checks;
+2. one-way structural theorem for a recognized subclass;
+3. compact Z3/nuXmv obligation for the semantic residue;
+4. explicit `UNSUPPORTED` or `NO_RESULT` if the required semantics remain outside the profile.
+
+Timeout is always `NO_RESULT`.
+
+## Structural discretization work: exact present scope
+
+Implemented files in `fitter-artifact` include:
+
+- `src/clarity/certification/structural_discretization.py`
+- `src/clarity/certification/constraint_logic.py`
+- `src/clarity/certification/discretization_semantic_validation.py`
+- `src/clarity/certification/structural_rule_validation.py`
 - `scripts/certify_discretization.py`
 - `scripts/validate_symbolic_methods.py`
-
-The pipeline uses a cascade:
-
-1. inexpensive syntactic/structural recognition;
-2. exact algebraic proof for a recognized subclass;
-3. SMT/model-checking fallback for unresolved semantic obligations.
-
-A fast-path checker is one-way: it may return a positive certificate only for a recognized sufficient condition. Otherwise it must pass through. Failure to recognize a model is not a negative result.
-
-The logical validity of the reusable proof rules is checked separately from per-model certification. Per-model runs should not rerun the entire meta-validation suite unless the proof method itself changed.
-
-### 2. Structural discretization safety
-
-The symbolic-process work was also applied to discretization safety. The intended fast path is the familiar calculus argument made executable:
-
-- extract the continuous/affine rate relation and the safety margin from SysML;
-- compute a sound rate or Lipschitz bound;
-- combine the bound with the chosen interval;
-- prove that inter-sample movement cannot consume the available margin;
-- pass unrecognized or insufficient cases to semantic fallback.
-
-The method-validation and per-model certification programs are separate. See in `fitter-artifact`:
-
 - `docs/STRUCTURAL_DISCRETIZATION_SAFETY.md`
 - `docs/SYMBOLIC_PROCESS_LOGIC.md`
-- `.github/workflows/symbolic-method-validation.yml`
 
-Do not interpret a structural refusal as a safety failure, and do not interpret finite simulation as an unbounded proof.
+The implemented experimental profile proves a narrow theorem:
 
-## Continuous-action model 1: rotary inverted pendulum
+- the recognized total functional shield establishes each mapped literal `#Prohibition` or `#Obligation` at completion of the policy-containing action;
+- every value retained by that predicate is then held through the quiescent interval before the next policy action.
 
-Source:
+It recognizes direct policy input bindings, fixed parameters, checked sample copies, controller latches, actuator command effects, Boolean normalization, affine interval contradiction, and bounded exact-rational unit-multiplier Farkas combinations. It returns a positive certificate or `INCONCLUSIVE`; it never reports a negative theorem.
+
+For the Mixing Machine, the theorem is about the literal source requirements over controller-observed levels and actuator states. It does not silently replace a delayed/sampled observation with physical tank level.
+
+The following desired rule is **not implemented**:
+
+```text
+available physical safety margin
+    >= sound derivative/rate bound × controller discretization interval
+```
+
+A future physical-state fast path may extract an affine vector field or Lipschitz bound and discharge that inequality. Until then, a changing physical property that cannot be mapped to held state must pass to another sound proof method.
+
+### Separate validation of proof methods
+
+The symbolic expression representation translates to a small typed constraint logic over Bool, Int, and Real. A logical sequent means premises entail a conclusion; Z3 checks the explicit counterexample formula.
+
+There are deliberately separate programs:
+
+- per-model certification;
+- method validation for the reusable proof-rule schemas and their current implementations.
+
+`scripts/validate_symbolic_methods.py` performs the combined method validation. Per-model certification must not rerun that entire suite unless the method or translation changed.
+
+This validates the claimed post-parse logic and reviewed rule implementations. It does not formally verify Python, arbitrary parsing, the SysML frontend, or Z3.
+
+## Continuous-action verification: key conclusion
+
+Continuous action does not inherently require action-space discretization. nuXmv supports real arithmetic, and recognized affine or piecewise-affine relations can be represented symbolically over real-valued actions. The actual difficulty comes from nonlinear dynamics, mode explosion, quantifier structure, unbounded reachability, or an inadequate invariant—not from continuity by itself.
+
+The CLARITY verification theorem is not a proof of trained DNN weights. The proof analyzes the SysML process, constraints, safety properties, action-execution relation, and the NeuralRequirements assumed of the controller. A runtime shield can enforce those NeuralRequirements independently of whether the raw learned proposal complies.
+
+Therefore:
+
+- do not add network-weight verification to this pipeline unless the user separately requests it;
+- do not discretize a continuous action space merely because it is continuous;
+- compile source-derived real constraints and use structural/algebraic proofs first;
+- keep proposed and executed actions distinct so training and verification describe the same architecture.
+
+## Continuous model 1: rotary inverted pendulum
+
+### Source and model scope
+
+Files:
 
 - `sysml-models/rotary-inverted-pendulum/model.sysml`
 - `sysml-models/rotary-inverted-pendulum/README.md`
 - `sysml-models/rotary-inverted-pendulum/REVIEW.md`
 
-Pipeline:
+The model is pinned to one sourced QUBE-Servo 2 rotary inverted-pendulum balance process rather than assembled from unrelated examples. Source citations are embedded in comments as nonsemantic provenance.
+
+Controller observations are the measured/estimated arm and pendulum positions and rates plus the reference. The real-valued controller proposal is motor voltage. The amplifier owns physical saturation.
+
+Source requirements:
+
+| Metadata | Requirement |
+| --- | --- |
+| NeuralRequirement | Neural Balance Controller Soundness |
+| Prohibition | Motor Voltage Within Authorized Range |
+| Prohibition | Stay Within Balance Controller Envelope |
+| Obligation | Controller Supplies State Feedback |
+
+The current NeuralRequirement specifies the exact sourced state-feedback equation. Consequently its shield chooses one exact voltage, not a permissive safe interval. A shielded learned policy is therefore an approximation exercised behind an exact equality shield; it is not an autonomous safe RL controller.
+
+### Why the original nuXmv run was not acceptable
+
+The first generated model had three material problems:
+
+1. a controller command sent directly from an action named `step` was not coupled to the amplifier input;
+2. the state-feedback property compared a stored command against sensor values from a different sample time;
+3. an auxiliary extractor rule invented nonnegativity for real step targets.
+
+The proof runner also aggregated obligations such that a hard invariant could obscure the status of others.
+
+The fixes couple the direct send, latch the exact observation used with each command, remove the unsound nonnegativity rule, and invoke each invariant independently.
+
+### Hybrid proof
+
+Files:
 
 - `continuous_pipeline.py`
 - `symbolic_transition.py`
@@ -94,174 +222,279 @@ Pipeline:
 - `docs/CONTINUOUS_CONTROLLER_PIPELINE.md`
 - `docs/PENDULUM_AFFINE_ENVELOPE_CERTIFICATE.md`
 
-Important corrections already made:
+The corrected hybrid proof at `d3d72e0dc3f1d522384bce5c13f16f034122d5d9` completed successfully:
 
-- direct sends from an action named `step` are coupled to the connected receiver;
-- controller state-feedback is checked against the exact stored observation used to compute the command, not a later sensor state;
-- the extractor no longer invents nonnegativity for arbitrary real-valued step targets;
-- nuXmv obligations run independently, so one hard obligation cannot hide quick successes or counterexamples.
+- nuXmv: motor-voltage invariant proved;
+- exact direct certificate: unbounded balance envelope proved;
+- nuXmv: controller state-feedback obligation proved;
+- nuXmv: both frozen-target auxiliary invariants proved.
 
-The pendulum proof is hybrid but still source-derived:
+The direct certificate is not a handwritten alternate model. It parses the freshly emitted SMV, requires the recognized amplifier branch, composes the two scan phases, backward-slices irrelevant state, and mechanically builds exact rational `A`, `B`, and `c` for the closed-loop affine recurrence. It proves a finite prefix and an unbounded block contraction, including that the amplifier remains on the assumed interior branch. Unsupported nonlinear policy, changed phase structure, ambiguous actuator branch, or unsupported initial/frozen parameters fails closed.
 
-- nuXmv proves the local voltage, controller-feedback, and frozen-target obligations;
-- the difficult unbounded balance envelope is recognized as an affine transition system compiled from the emitted SMV;
-- exact rational finite-prefix plus contraction reasoning proves the envelope and the amplifier branch needed by that reasoning.
+This is the concrete example of replacing a difficult nuXmv obligation with a lighter source-derived symbolic certificate while leaving the other obligations with nuXmv.
 
-This is not a handwritten plant-matrix proof. `symbolic_transition.py` parses the emitted transition relation, composes the recognized phases, slices irrelevant state, and produces exact `A`, `B`, and `c`. Unsupported structure fails closed.
+### Pendulum training experiments
 
-The original pendulum `#NeuralRequirement` identifies an exact feedback output, so the first GRU pipeline is oracle cloning plus an equality shield, not autonomous RL. Later continuous PPO experiments should not erase that distinction.
+The PPO comparison deliberately tested unsafe/unshielded and safe/shielded credit semantics.
 
-## Continuous-action model 2: Hall-sensored BLDC motor
+A full-horizon experiment at `b50d43a4` used 20 training episodes per mode, 10 evaluation episodes, and a 6,000-step cap:
 
-Source and provenance:
+| Mode | Evaluation successes | Unsafe evaluation episodes | Mean evaluation steps | Interpretation |
+| --- | ---: | ---: | ---: | --- |
+| Unshielded terminate | 0/10 | 10/10 | 1.0 | Initial proposals violated immediately |
+| Unshielded continue | 0/10 | 10/10 | 6,000 | Diverged severely; continuing after unsafe execution gave unusable behavior |
+| Shielded executed credit | 10/10 | 0/10 | 1,425.1 | Safe task completion, but the equality shield supplied every executed action |
+| Shielded proposal credit | 10/10 | 0/10 | 1,425.1 | Same safe task completion; proposal penalty changed learning signal, not executed behavior |
+
+The later middle configuration removed unshielded-continue, terminated only on actual unshielded Prohibition violation, made override/time costs horizon-normalized, and ensured success reward and punishment were mutually exclusive.
+
+The improvement battery at `d23046ca` compared behavior cloning losses, bounded means, PPO refinements, and a feedforward/no-GRU policy. Every candidate completed 10/10 shielded evaluations, but every candidate had 0/10 unshielded successes and 10/10 unsafe unshielded episodes. The feedforward candidate therefore showed only that the exact shield can make a memoryless proposal network complete the shielded task; it did **not** show that GRU memory is unnecessary for an autonomous policy.
+
+Do not call shielded task success evidence that the learned DNN independently learned the exact safe controller. The unshielded evaluations did not support that claim.
+
+## Continuous model 2: Hall-sensored BLDC motor
+
+### Source and model scope
+
+Files:
 
 - `sysml-models/hall-sensored-bldc/model.sysml`
 - `sysml-models/hall-sensored-bldc/README.md`
 - `sysml-models/hall-sensored-bldc/REVIEW.md`
 - `sysml-models/hall-sensored-bldc/SOURCE_CONFORMANCE_AUDIT.md`
 
-The model is centered on the selected NXP Hall-sensored six-step BLDC reference and its compatible parameter material. It is not an average of unrelated motor specifications. Source comments distinguish published values, project-level reductions, and explicit assumptions.
+The process is centered on the selected NXP Hall-sensored six-step BLDC material and the compatible Sunrise motor parameter file. Published facts, derived quantities, project assumptions, and excluded behavior are labeled separately. It is a RUN-phase nominal control experiment, not a validated digital twin of the physical bench.
 
-The model preserves:
+State distinctions include:
 
-- physical rotor angle, speed, and energized-pair current;
-- Hall sampling and six-period speed estimation;
-- proposed duty, bounded proposal, and executed duty;
-- Hall validity and the exact commutation table;
-- the plant-facing current-safe projection;
-- target, completion tolerance, and controller-held command;
-- scenario inputs and model assumptions.
+- rotor angle, physical speed, and physical energized-pair current;
+- sampled Hall sector/code, sampled current, and six-period speed estimate;
+- policy proposal, contract-bounded proposal, plant-current-projected duty, and executed phase voltage;
+- Hall timing/history and direction;
+- fixed motor/bench parameters, target, tolerance, and source-declared assumptions.
 
-Current safety obligations include normalized executed duty, invalid-Hall shutdown, valid phase commutation, physical and projected pair-current bounds, feasibility of the current-safe interval, physical speed envelope, and the neural bounded-duty contract. Task completion is speed tracking within the declared tolerance, distinct from safety.
+Requirements:
 
-Verification:
+| Metadata | Requirement |
+| --- | --- |
+| NeuralRequirement | Neural Speed Controller Soundness |
+| Prohibition | Executed Duty Within Authorized Range |
+| Prohibition | Invalid Hall State Disables Drive |
+| Prohibition | Valid Hall Commutation Uses Distinct Phases |
+| Prohibition | Physical Pair Current Within Rated Limit |
+| Prohibition | Projected Pair Current Within Rated Limit |
+| Prohibition | Current Safety Projection Remains Feasible |
+| Prohibition | Physical Speed Within Nameplate Envelope |
+| Obligation | Controller Supplies Bounded Duty Proposal |
 
-- `hall_motor_verification.py` extracts a fail-closed safety contract from the model;
-- a structural certificate proves observer synchronization, current-projection algebra, projection regions, feasibility over the authorized envelope, target feasibility, Hall shutdown, and the commutation table;
-- it emits a compact real-arithmetic SMV model;
-- nuXmv checks the emitted obligations independently.
+Task success is reaching target speed within the project-defined 5 rad/s tolerance. Safety and task completion are distinct.
 
-At source commit `429e7d8`, the corrected validation campaign had:
+### Serious defects found and corrected
 
-- 36/36 runner tests passing;
-- all seven motor nuXmv obligations proved;
-- short Mac MPS PPO smoke runs for both shielded modes with zero unsafe executed steps in training and evaluation.
+The initial motor draft and first training runs cannot be treated as current evidence. The following corrections were required:
 
-The training entry point is `hall_motor_training.py`. The two relevant modes are:
+1. **Speed estimate:** one Hall interval was replaced by the sourced six-period, direction-consistent estimate. Direction reversal resets the period window.
+2. **Hall timing:** the executable 50 μs polling approximation and maximum capture delay are explicit; it is not falsely described as exact asynchronous interrupt timing.
+3. **Current protection:** the inadequate controller-rate, same-direction cutoff allowed roughly 11 A and was removed. The replacement advances an exact-model observer every 50 μs, algebraically computes the complete safe-duty interval, and projects the bounded proposal onto it.
+4. **Target envelope:** the 24 V motor's 9,000 rpm nameplate was incorrectly used as a 12 V task target. The target range is now capped at the exact-part NXP nominal 4,000 rpm; 9,000 rpm remains only the execution safety envelope.
+5. **Parser initialization:** Boolean instance initializers were being discarded and are now preserved.
+6. **Policy observation:** the `#Completion` input is excluded from pre-action policy observations; it is produced by the execution engine, not available to the controller before acting.
+7. **Normalization:** the final trainer uses declared per-input scales rather than one inappropriate global scale.
+8. **PPO likelihood:** PPO records the sampled proposal and its log probability. It never scores a projected/executed action as though the policy sampled it.
+9. **Reward attribution:** proposal correction is measured against the duty actually executed after the plant-facing current projection, using the completed process state rather than the next policy-input packet.
+10. **Floating execution guard:** projection targets `±5.999999 A` so binary64 drift cannot fall a few ulps outside the exact outer `±6 A` runtime requirement. The real-arithmetic proof establishes the stronger inner bound.
 
-- `shielded_executed_credit`: environment/task reward follows the action actually executed by the process, with a small intervention cost;
-- `shielded_proposal_credit`: PPO likelihood remains attached to the sampled proposal, while the reward penalizes divergence between the proposal and what the process executed.
+The final source still has explicit limitations: scalar averaged two-phase dynamics; assumed pair inductance/reduction; zero external load and loss torque; ideal current sensing; sampled Hall timing; no switching ripple, thermal model, startup/alignment sequence, parameter uncertainty, or hardware trajectory validation.
 
-PPO must always record the sampled proposal in its likelihood calculation. Scoring a projected action under the proposal density is wrong. The process-facing reward may nevertheless depend on the actually executed action.
+### Motor verification
 
-The trained checkpoints remain experimental and non-deployable until the full evaluation gate passes.
+`hall_motor_verification.py`:
 
-## Pending MacBook training
+1. validates a pinned source slice and extracts the exact constants;
+2. generates a solver-free structural certificate for observer induction, current-projection algebra, the three projection regions, feasibility over the declared envelope, target feasibility, Hall invalid-state shutdown, and every commutation table row;
+3. emits a compact real-arithmetic SMV relation;
+4. asks nuXmv to prove each emitted invariant separately.
 
-The requested replacement full run has been submitted:
+At `429e7d87efe21164836ec93eebca344122fd5e4f`:
 
-- request ID: `standalone-motor-500ep-10ms-20261005-1752`
+- 36/36 focused runner tests passed;
+- all seven nuXmv obligations proved;
+- the short guarded Mac MPS PPO smoke completed both shielded modes with zero unsafe executed steps.
+
+These results prove only the encoded nominal discrete model and its stated assumptions. They are not certificates for NXP hardware, unpublished PI tuning, switching-level current peaks, omitted operating phases, or thermal safety.
+
+### Motor PPO semantics and historical evidence
+
+The two active full-training modes are:
+
+- `shielded_executed_credit`: PPO likelihood remains on the proposal, while task reward is based on actual process execution and includes a small intervention cost;
+- `shielded_proposal_credit`: PPO likelihood remains on the proposal, and a bounded non-flat penalty replaces ordinary negative reward when the proposal differs from the process-executed action.
+
+No shield intervention terminates an episode. Only an actually allowed unsafe unshielded action may trigger the unshielded safety termination mode.
+
+Historical pre-correction results must not be promoted as current controller evidence. They were useful diagnostics:
+
+- the early 100-episode motor run at `fc642328` had 4/20 shielded-executed evaluation successes and 0/20 shielded-proposal evaluation successes;
+- the short ablation at `5f17a507` showed that fixed-target progress reward could produce 10/10 evaluation success, while random-target progress obtained only 2/10; this helped identify target distribution and reward shape as bottlenecks;
+- those runs preceded the final plant, parser, observation, PPO-credit, current-projection, and numerical-guard corrections.
+
+## Current motor training jobs
+
+### Incomplete 2,000-episode request
+
+Request `standalone-motor-full-shielded-20261005-1700` has returned:
+
+- worker: MacBook MPS;
+- source: `429e7d8`;
+- exit code: **255**;
+- completed progress: only 110/2,000 episodes of `shielded_executed_credit`;
+- no second-mode training;
+- no final evaluation or comparison report.
+
+Its progress windows reported 2–5 successes per ten episodes, zero unsafe episodes, and mean proposal error around 0.61–0.67. These are incomplete training diagnostics, not a completed result or checkpoint acceptance test. Do not put them in a final performance table as though the run finished.
+
+Result:
+
+`results/standalone-motor-full-shielded-20261005-1700.json` on `compute-results`.
+
+### Pending 500-episode, 10 ms request
+
+Replacement request:
+
+- ID: `standalone-motor-500ep-10ms-20261005-1752`
 - compute-request commit: `ac6d03f86af0d3cee26e317db2c659160d0153e1`
-- worker: `macbook`, macOS arm64, PyTorch MPS
+- worker: MacBook MPS
 - source commit: `429e7d87efe21164836ec93eebca344122fd5e4f`
 - modes: both shielded modes
-- training episodes: 500 per mode
-- evaluation episodes: 100 per mode
+- training: 500 episodes per mode
+- evaluation: 100 episodes per mode
+- controller decisions: 300 per episode
 - controller decision interval: 10 ms
-- controller decisions per episode: 300
 - intended physical episode horizon: 3 seconds
 - seed: 42
 
-Request file:
+Request path:
 
 `requests/standalone-motor-500ep-10ms-20261005-1752.json` on `compute-requests`.
 
-Expected result file:
+Expected receipt:
 
 `results/standalone-motor-500ep-10ms-20261005-1752.json` on `compute-results`.
 
-As of this handoff, that result file had **not returned**.
+At the time of this revision, that receipt did not exist.
 
-The request is an intentionally temporary experiment: inside the runner worktree it changes `speedControlTicksPerUpdate` from 20 to 200, recomputes the fail-closed safety-slice digest for that temporary worktree, and then trains. It does not persist that timing change to the source branch. The next session must inspect the result before making claims and must not treat this runtime patch as the final configuration architecture.
+This request uses a temporary runner-worktree patch:
 
-An older request, `standalone-motor-full-shielded-20261005-1700`, asked for 2,000 episodes and 3,000 controller decisions per mode. It was still absent from `compute-results` when the smaller replacement was submitted. Do not confuse its eventual result with the 500-episode/10-ms experiment.
+- `speedControlTicksPerUpdate` is changed from 20 to 200;
+- the plant/current/commutation substep remains 50 μs;
+- therefore one controller decision spans 200 × 50 μs = 10 ms;
+- the safety-slice digest is recomputed for the temporary worktree;
+- none of those edits persist on the source branch.
 
-When the new result arrives, record at least:
+This was submitted to obtain the requested experiment quickly. Runtime source and digest rewriting is technical debt, not the final architecture.
 
-| Mode | Training successes | Evaluation successes | Truncations | Mean steps | Mean reward | Shield interventions | Mean proposal error | Unsafe executed steps | Errors |
+When the result arrives, extract:
+
+| Mode | Train successes | Evaluation successes | Truncations | Mean steps | Mean reward | Interventions | Mean proposal error | Unsafe steps | Errors |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 
-Zero unsafe execution is mandatory but not sufficient for task success. A shield can make a useless policy safe.
+Zero unsafe execution is mandatory but insufficient. A shield can make a task-incompetent raw policy safe.
 
-## Mandatory timing/parameter refactor
+## Mandatory timing and parameter refactor
 
-This is the highest-priority implementation correction after collecting the pending result.
+This is the next implementation priority after recording the pending result.
 
-The current pipeline makes timing changes unnecessarily difficult because related timing values appear in model fields, training code, verification extraction, comments, tests, and runner commands. That creates an inconsistency hazard.
+The user uses **`dt` to mean the controller discretization/decision interval**. Preserve that public meaning. The motor also needs a smaller electrical/current/commutation integration substep; name that quantity separately, for example `plantIntegrationSubstepSeconds`. Do not use `dt` for both.
 
-The externally meaningful controller discretization interval—called `dt` by the user—must become one authoritative, explicit parameter. Changing it once must propagate mechanically to every downstream consumer. If the motor implementation also requires a smaller internal electrical/commutation integration substep, give that quantity a different, unambiguous name. Do not call two different intervals `dt`.
+There must be one authoritative controller-`dt` value. Changing it once must mechanically update or validate every downstream quantity:
 
-At minimum, the single controller interval must determine or validate:
-
-- the interval between controller observations and decisions;
-- the number of internal plant/commutation substeps;
-- episode physical duration and controller-step limits;
+- controller observation and decision cadence;
+- action-hold duration;
+- number of internal plant substeps;
+- episode physical horizon and controller-step cap;
 - simulator scheduling;
-- controller-held-action duration;
-- reward/time normalization;
 - buffer/history timestamps;
-- discretization certificates and their margins;
-- any transition matrix or recurrence compiled for proof;
-- current-projection and observer timing where applicable;
-- emitted nuXmv/SMT constants;
-- result metadata, tests, and documentation.
+- reward/time normalization;
+- discretization margins;
+- compiled transition recurrences and matrices;
+- emitted SMT/nuXmv constants;
+- certificate, checkpoint, and result metadata;
+- tests and documentation.
 
-Required behavior:
+Required fail-closed design:
 
-1. One source of truth is parsed into the symbolic/process contract.
-2. Every derived duration is computed from that value, not copied as another literal.
-3. The compiler rejects non-integral substep ratios where an integral ratio is required.
-4. The compiler rejects disagreement between plant, observer, sensor, shield, verifier, and trainer timing.
-5. Certificates include the authoritative timing value and source hash.
-6. Changing timing invalidates stale certificates and checkpoints automatically.
-7. Tests mutate the one authoritative parameter and verify that all downstream derived values change together.
-8. No runner-time source rewriting or digest rewriting remains in the final pipeline.
+1. Parse one typed controller-`dt` into the symbolic process contract.
+2. Derive every dependent duration; do not duplicate literals.
+3. If internal substeps are required, derive their count and reject a non-integral or unsupported ratio.
+4. Prove or validate that plant, sensor, observer, shield, verifier, trainer, and emitted proof model use the same timing configuration.
+5. Include timing values and source/configuration fingerprints in certificates and checkpoints.
+6. Invalidate stale certificates and checkpoints when timing changes.
+7. Add mutation tests that change only controller-`dt` and confirm all derived values change together.
+8. Remove runner-time source editing and digest rewriting.
+9. Do not silently change the 50 μs internal motor approximation when changing controller-`dt`; that is a separate model/fidelity decision requiring its own review.
 
-Do not merely replace one hardcoded literal with several command-line defaults. The point is a typed, propagated parameter with fail-closed consistency checks.
+The current branch still hardcodes timing in multiple places. No source refactor was committed after the 500-episode request because the user explicitly stopped that work.
 
-## Immediate next actions for the new session
+## Other design conclusions from this session
 
-1. Check `compute-results` for `standalone-motor-500ep-10ms-20261005-1752.json`.
-2. Summarize both modes in the table above and inspect stdout/stderr, not just exit code.
-3. Determine whether 500 episodes produced meaningful task completion rather than only safe truncation.
-4. Preserve the result as an experiment pinned to `429e7d8`; do not retroactively reinterpret it after source changes.
-5. Design and implement the authoritative controller-`dt` propagation described above.
-6. Run focused timing/consistency tests before rerunning full verification or training.
-7. Only after those focused tests pass, rerun motor structural verification, each nuXmv obligation, and a short two-mode PPO smoke.
-8. Submit another full training job only if the refactored smoke is consistent and safe.
+### Shielded training and task performance
 
-## Compute bridge
+A shield guarantees only its safety contract. It can distort exploration and credit by replacing proposals, especially when multiple safe actions exist and the task-optimal safe policy occupies a narrow subset. Executed-action reward, proposal penalty, and unshielded safety termination are different training semantics and must remain explicit.
 
-Use GitHub as the asynchronous boundary:
+For the pendulum equality shield, the shield itself determines the task action; successful shielded episodes reveal little about raw-policy competence. For permissive interval/polytope shields, shielded PPO may meaningfully learn among safe actions, but intervention and proposal-error statistics remain necessary.
 
-- edit and pin source in the normal source branch;
-- submit JSON requests on `compute-requests`;
-- request the weakest adequate worker unless MPS/GPU training is specifically useful;
-- read receipts from `compute-results`;
-- never infer success from request disappearance or elapsed time;
-- always pin the exact source commit and retain output/error tails.
+### Noise
 
-The MacBook is appropriate for PyTorch MPS training. GitHub-hosted or smaller personal workers are preferable for ordinary tests and symbolic checks when their dependencies suffice.
+No noisy model was implemented in this branch. The agreed conceptual boundary is:
 
-## Soundness boundaries
+- bounded-support disturbances can enter a universal proof as explicit nondeterministic bounds;
+- unbounded Gaussian noise makes an absolute finite safety claim false unless a shield or physical bottleneck bounds the safety-relevant effect;
+- otherwise the claim must become probabilistic/confidence-qualified.
 
-- The SysML model is the modeled world. Certificates are conditional on that model and its explicit assumptions being correct.
-- Model-source fidelity and proof correctness are separate obligations.
-- Structural certificates apply only to their recognized subclass.
-- nuXmv or Z3 timeout is inconclusive, never proof or disproof.
-- Simulation can find counterexamples and training behavior; finite simulation cannot establish an unbounded universal property.
-- A source hash prevents unnoticed drift but does not prove that a reviewed digest is semantically correct.
-- Physical and sensor values must never be collapsed unless the model explicitly asserts equality.
-- Shield presence is part of the transition system. With no shield, use identity execution; with a shield, certify the shielded process.
-- The proof sees fixed context and hidden physical state even when the controller does not.
-- A certificate must name its exact scope, assumptions, non-claims, source revision, and timing configuration.
+Do not silently truncate Gaussian noise and retain an absolute theorem.
+
+### Model selection criteria
+
+A future continuous model must be based on:
+
+1. one authoritative device specification;
+2. one authoritative accepted engineering/scientific model;
+3. or measured data identifying an actual process.
+
+Compatible sources may enrich missing fields only when compatibility is explicit and documented. The Hall motor and pendulum source comments record their selected references; preserve them as nonsemantic provenance.
+
+## Compute resources
+
+The workflow has three compute levels:
+
+- browser-session VM: editing and lightweight tests; package/hardware limitations;
+- GitHub-hosted resources: ordinary CI and symbolic jobs where supported;
+- personal runners: automatic external execution, with MacBook MPS for PyTorch and smaller workers for routine jobs.
+
+The personal runner communicates only through GitHub request/result branches. Pin every request to a source commit, record resource requirements, and inspect result JSON plus output/error tails. Elapsed time or a missing file is not a verdict.
+
+## Immediate new-session checklist
+
+1. Read this document and the exact pending request before changing source.
+2. Check for `results/standalone-motor-500ep-10ms-20261005-1752.json`.
+3. If present, verify source SHA, worker, exit code, both mode records, evaluation completion, errors, unsafe steps, successes, truncations, and intervention/proposal-error statistics.
+4. Add the completed result to this handoff without rewriting its historical configuration.
+5. Do not rerun the failed 2,000 × 3,000 job.
+6. Design the single-source controller-`dt` contract and obtain user approval before implementing it.
+7. Implement timing propagation with focused mutation/consistency tests.
+8. Rerun the motor structural certificate, each nuXmv obligation, and a very short two-mode PPO smoke under the refactored timing.
+9. Only then decide whether another long training run is justified.
+10. Keep continuous-action Markov generalization separate from the current Boolean-action profile unless explicitly authorized.
+
+## Soundness and reporting boundaries
+
+- A property constrains transition behavior only when the selected semantic profile says it does; a requirement must not silently become an assumption.
+- Physical and sampled values remain distinct unless the source explicitly relates them.
+- Proposed, shielded, and plant-executed actions remain distinct.
+- Fixed context is shared between paired histories but is not automatically controller-visible.
+- A structural refusal is inconclusive, not a counterexample.
+- Z3 or nuXmv timeout is inconclusive.
+- Bounded simulation can expose bugs and witnesses; it cannot prove an unbounded universal theorem.
+- Source hashes detect drift but do not prove the reviewed source interpretation correct.
+- Every certificate must record source identity, proof profile, exact timing, assumptions, scope, non-claims, and backend result.
+- No claim extends beyond the encoded SysML model and its explicit assumptions.
