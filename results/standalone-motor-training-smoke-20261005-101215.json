@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 1,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-training-smoke-20261005-101215",
+  "resolved_sha": "81f551e542ecf2ec4bd4af37ab9589cf12fcd255",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "81f551e542ecf2ec4bd4af37ab9589cf12fcd255",
+  "stderr_tail": "test_invalid_hall_forces_zero_without_terminating_training (tests.test_hall_motor_training.HallMotorTrainingTests.test_invalid_hall_forces_zero_without_terminating_training) ... ok\ntest_report_identifies_projection_not_unique_action (tests.test_hall_motor_training.HallMotorTrainingTests.test_report_identifies_projection_not_unique_action) ... ok\ntest_valid_hall_proposals_are_clipped_to_contract (tests.test_hall_motor_training.HallMotorTrainingTests.test_valid_hall_proposals_are_clipped_to_contract) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nOK\nTraceback (most recent call last):\n  File \"/Users/csned/clarity-jobs/1e0b30ca6c7592722b173ab9/hall_motor_training.py\", line 135, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/csned/clarity-jobs/1e0b30ca6c7592722b173ab9/hall_motor_training.py\", line 63, in main\n    probe = ContinuousSysMLEnv(\n        str(model_path), dt=DT_SECONDS, max_steps=args.max_steps,\n        phase=1, rng_seed=args.seed, observation_scale=OBSERVATION_SCALE)\n  File \"/Users/csned/clarity-jobs/1e0b30ca6c7592722b173ab9/rl/continuous_env.py\", line 26, in __init__\n    super().__init__(model_path, dt=dt, max_steps=max_steps,\n    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n                     phase=phase, rng_seed=rng_seed,\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n                     observation_scale=observation_scale)\n                     ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\nTypeError: SysMLEnv.__init__() got an unexpected keyword argument 'observation_scale'\n",
+  "stdout_tail": "",
+  "worker": "macbook"
+}
