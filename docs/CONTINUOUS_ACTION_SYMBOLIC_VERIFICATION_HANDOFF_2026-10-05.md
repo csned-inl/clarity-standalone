@@ -11,6 +11,14 @@ This revision corrects two material errors in the first draft:
 
 The replacement 500-episode motor request remains pending at the time of this revision.
 
+## BLOCKING FAILURE — CONTINUOUS MODELS ARE QUARANTINED
+
+**Do not present, publish, demonstrate, extend, train, or make verification claims from either continuous-action model until a complete timing audit and repair has been performed.** This applies to both the Hall-sensored BLDC motor and the rotary inverted pendulum. The motor is known broken with respect to timing configuration and execution cost; the pendulum must be presumed affected until independently audited because it shares the same simulator/training architecture and duplicated timing controls.
+
+This is not a request for a compiler, transition-kernel compiler, simulator replacement, or other architectural expansion. The immediate defect is much simpler: timing that should have been controlled by one propagated parameter was independently hardcoded across the SysML, simulator adapter, trainer, proof metadata, and runner request. The previous agent is explicitly **not authorized to implement the repair**. The next session must diagnose and propose the smallest correction, obtain user approval, and only then modify source.
+
+No existing successful test, nuXmv result, structural certificate, smoke run, or shielded-training result removes this block. Those results may remain as historical diagnostics, but model-level conclusions are quarantined until the timing audit determines exactly which claims survive.
+
 ## Non-negotiable project direction
 
 The SysML model is the formal process being studied. The proof pipeline must compile the mathematics and constraints expressed by that model directly. It must not compile a simulator and then symbolically reconstruct the mathematics from the simulator's procedural control graph.
@@ -338,102 +346,61 @@ Historical pre-correction results must not be promoted as current controller evi
 - the short ablation at `5f17a507` showed that fixed-target progress reward could produce 10/10 evaluation success, while random-target progress obtained only 2/10; this helped identify target distribution and reward shape as bottlenecks;
 - those runs preceded the final plant, parser, observation, PPO-credit, current-projection, and numerical-guard corrections.
 
-## Current motor training jobs
+## Current motor training jobs — failed experiment record
 
 ### Incomplete 2,000-episode request
 
-Request `standalone-motor-full-shielded-20261005-1700` has returned:
+Request `standalone-motor-full-shielded-20261005-1700` returned exit code **255** after only 110/2,000 episodes of its first mode. It never trained the second mode and produced no final evaluation or comparison. The receipt is `results/standalone-motor-full-shielded-20261005-1700.json` on `compute-results`. Its progress lines are incomplete diagnostics only.
 
-- worker: MacBook MPS;
-- source: `429e7d8`;
-- exit code: **255**;
-- completed progress: only 110/2,000 episodes of `shielded_executed_credit`;
-- no second-mode training;
-- no final evaluation or comparison report.
+### Misconfigured 500-episode request: discard the result
 
-Its progress windows reported 2–5 successes per ten episodes, zero unsafe episodes, and mean proposal error around 0.61–0.67. These are incomplete training diagnostics, not a completed result or checkpoint acceptance test. Do not put them in a final performance table as though the run finished.
+Request `standalone-motor-500ep-10ms-20261005-1752` was submitted at compute-request commit `ac6d03f86af0d3cee26e317db2c659160d0153e1` against source `429e7d87efe21164836ec93eebca344122fd5e4f`. It requested both shielded modes, 500 training episodes and 100 evaluation episodes per mode, 300 controller decisions per episode, and MacBook MPS.
 
-Result:
+The user ordered one simple experimental timing change: make the controller discretization/update interval ten times longer and reduce the controller-step count by ten. The submission did **not** implement that as one propagated parameter change. Instead it patched `speedControlTicksPerUpdate` from 20 to 200 while leaving `DT_SECONDS = 0.00005` and the SysML electrical/current/commutation timing separately hardcoded. It also rewrote the safety-slice digest in the temporary runner worktree.
 
-`results/standalone-motor-full-shielded-20261005-1700.json` on `compute-results`.
+Consequences:
 
-### Pending 500-episode, 10 ms request
+- one nominal 10 ms controller interval still causes 200 interpreted 50 μs engine cycles;
+- 300 controller decisions still cost up to 60,000 interpreted SysML transitions per episode;
+- 1,000 training episodes plus 200 evaluation episodes request up to 72,000,000 interpreted transitions;
+- the small GRU/PPO work may use MPS, but the dominant source interpreter and requirement checks are serial CPU work;
+- the tenfold reduction in controller decisions therefore did not produce the intended tenfold reduction in simulation work.
 
-Replacement request:
+The prior failed request processed roughly 110 episodes in about 31 minutes, implying that the replacement request could require hours or hit the same runner limit. At 18:23 UTC on 2026-10-05, its expected receipt `results/standalone-motor-500ep-10ms-20261005-1752.json` did not exist.
 
-- ID: `standalone-motor-500ep-10ms-20261005-1752`
-- compute-request commit: `ac6d03f86af0d3cee26e317db2c659160d0153e1`
-- worker: MacBook MPS
-- source commit: `429e7d87efe21164836ec93eebca344122fd5e4f`
-- modes: both shielded modes
-- training: 500 episodes per mode
-- evaluation: 100 episodes per mode
-- controller decisions: 300 per episode
-- controller decision interval: 10 ms
-- intended physical episode horizon: 3 seconds
-- seed: 42
+**If this request later returns, record its receipt for provenance and discard its training result. Do not compare, publish, or use its policy checkpoint.** It does not represent the single-parameter timing experiment requested by the user.
 
-Request path:
+The failed response after discovering this problem proposed compiling a fast transition kernel. The user rejected that correctly. No compiler is required or authorized. The defect is the failure to represent and propagate the intended timing parameter consistently.
 
-`requests/standalone-motor-500ep-10ms-20261005-1752.json` on `compute-requests`.
+## Mandatory timing audit and repair — next session only
 
-Expected receipt:
+This is a release blocker, not optional cleanup.
 
-`results/standalone-motor-500ep-10ms-20261005-1752.json` on `compute-results`.
+The user uses **`dt` to mean the controller discretization/decision interval**. The demanded experiment should have changed that one parameter from its prior value to a value ten times larger and reduced the controller-step cap by ten. Every dependent timing quantity must be derived from that source or fail closed. Independent timing literals must not be patched by hand.
 
-At the time of this revision, that receipt did not exist.
+The next session must first audit, without modifying source:
 
-This request uses a temporary runner-worktree patch:
+- the Hall-motor SysML timing declarations and all derived schedules;
+- `hall_motor_training.py`, especially `DT_SECONDS`;
+- `ContinuousSysMLEnv`, `SimulatorTwin`, and `SimulationEngine` timing semantics;
+- controller-update, sensor, shield, plant, observer, and requirement-check cadence;
+- episode horizon, controller-step cap, reward normalization, and PPO discount interpretation;
+- emitted nuXmv/SMT constants, symbolic recurrences, hashes, certificates, and result metadata;
+- the rotary-pendulum model and training path for the same class of duplicated or inconsistent timing.
 
-- `speedControlTicksPerUpdate` is changed from 20 to 200;
-- the plant/current/commutation substep remains 50 μs;
-- therefore one controller decision spans 200 × 50 μs = 10 ms;
-- the safety-slice digest is recomputed for the temporary worktree;
-- none of those edits persist on the source branch.
+The audit must produce an explicit dependency table showing the one authoritative controller `dt`, every value derived from it, and every genuinely independent physical timing constant. It must determine whether the intended tenfold controller-`dt` experiment changes only a controller interval, changes the numerical integration interval, or requires another already-specified relationship. Do not invent that relationship privately.
 
-This was submitted to obtain the requested experiment quickly. Runtime source and digest rewriting is technical debt, not the final architecture.
+Only after user approval may the next session implement the smallest repair. Required acceptance tests include:
 
-When the result arrives, extract:
+1. change the authoritative controller `dt` once and show every intended dependent value changes automatically;
+2. prove that no stale duplicate literal controls runtime or proof behavior;
+3. show the physical episode horizon and controller-step count are consistent;
+4. show trainer, simulator, shield, symbolic transition, and proof backends report identical timing metadata;
+5. fail closed on inconsistent or non-integral timing relationships;
+6. rerun focused timing tests before any full verification or training;
+7. invalidate all certificates and checkpoints whose timing fingerprint no longer matches.
 
-| Mode | Train successes | Evaluation successes | Truncations | Mean steps | Mean reward | Interventions | Mean proposal error | Unsafe steps | Errors |
-| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | --- |
-
-Zero unsafe execution is mandatory but insufficient. A shield can make a task-incompetent raw policy safe.
-
-## Mandatory timing and parameter refactor
-
-This is the next implementation priority after recording the pending result.
-
-The user uses **`dt` to mean the controller discretization/decision interval**. Preserve that public meaning. The motor also needs a smaller electrical/current/commutation integration substep; name that quantity separately, for example `plantIntegrationSubstepSeconds`. Do not use `dt` for both.
-
-There must be one authoritative controller-`dt` value. Changing it once must mechanically update or validate every downstream quantity:
-
-- controller observation and decision cadence;
-- action-hold duration;
-- number of internal plant substeps;
-- episode physical horizon and controller-step cap;
-- simulator scheduling;
-- buffer/history timestamps;
-- reward/time normalization;
-- discretization margins;
-- compiled transition recurrences and matrices;
-- emitted SMT/nuXmv constants;
-- certificate, checkpoint, and result metadata;
-- tests and documentation.
-
-Required fail-closed design:
-
-1. Parse one typed controller-`dt` into the symbolic process contract.
-2. Derive every dependent duration; do not duplicate literals.
-3. If internal substeps are required, derive their count and reject a non-integral or unsupported ratio.
-4. Prove or validate that plant, sensor, observer, shield, verifier, trainer, and emitted proof model use the same timing configuration.
-5. Include timing values and source/configuration fingerprints in certificates and checkpoints.
-6. Invalidate stale certificates and checkpoints when timing changes.
-7. Add mutation tests that change only controller-`dt` and confirm all derived values change together.
-8. Remove runner-time source editing and digest rewriting.
-9. Do not silently change the 50 μs internal motor approximation when changing controller-`dt`; that is a separate model/fidelity decision requiring its own review.
-
-The current branch still hardcodes timing in multiple places. No source refactor was committed after the 500-episode request because the user explicitly stopped that work.
+Do not add a compiler, simulator replacement, macro-transition engine, or performance architecture unless the user separately authorizes it after the minimal parameter repair is understood.
 
 ## Other design conclusions from this session
 
@@ -475,16 +442,16 @@ The personal runner communicates only through GitHub request/result branches. Pi
 
 ## Immediate new-session checklist
 
-1. Read this document and the exact pending request before changing source.
-2. Check for `results/standalone-motor-500ep-10ms-20261005-1752.json`.
-3. If present, verify source SHA, worker, exit code, both mode records, evaluation completion, errors, unsafe steps, successes, truncations, and intervention/proposal-error statistics.
-4. Add the completed result to this handoff without rewriting its historical configuration.
-5. Do not rerun the failed 2,000 × 3,000 job.
-6. Design the single-source controller-`dt` contract and obtain user approval before implementing it.
-7. Implement timing propagation with focused mutation/consistency tests.
-8. Rerun the motor structural certificate, each nuXmv obligation, and a very short two-mode PPO smoke under the refactored timing.
-9. Only then decide whether another long training run is justified.
-10. Keep continuous-action Markov generalization separate from the current Boolean-action profile unless explicitly authorized.
+1. Treat both continuous-action models as quarantined and do not present their results externally.
+2. Check whether the misconfigured 500-episode request returned; archive its receipt but discard its model/checkpoint result.
+3. Do not rerun either long motor job.
+4. Perform the read-only timing audit described above for the motor and pendulum paths.
+5. Produce the timing dependency table and identify every duplicate or independently hardcoded value.
+6. Report the smallest proposed repair to the user and wait for explicit approval.
+7. Do not introduce a compiler or other architectural expansion.
+8. After approval, test timing components individually before running complete verification.
+9. Reassess every prior continuous-model proof and training claim against the repaired timing fingerprint.
+10. Keep continuous-action Markov generalization separate unless explicitly authorized.
 
 ## Soundness and reporting boundaries
 
