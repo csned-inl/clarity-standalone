@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-phase-test-3524-20261005-0138",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "3524c87e7ef299429c7d61d2ef61c89d63292343"
+  },
+  "command": "python3 -m unittest tests.test_continuous_controller_pipeline.ContinuousControllerPipelineTests.test_smv_couples_controller_command_to_amplifier -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 1,
+    "min_memory_mb": 2000
+  }
+}
