@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-training-basic-20261005-102014",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "fc642328e6458dea54217bb7c916ad9c9af51785"
+  },
+  "command": "python3 hall_motor_training.py --output runs/standalone-motor-training-basic-20261005-102014 --device mps --episodes 100 --episodes-per-update 10 --evaluation-episodes 20 --max-steps 3000 --seed 42 && python3 - <<'PY'\nimport json\nfrom pathlib import Path\nr=json.loads(Path(\"runs/standalone-motor-training-basic-20261005-102014/comparison.json\").read_text())\nprint(\"MOTOR_BASIC_PPO_SUMMARY\")\nfor row in r[\"results\"]:\n    print(json.dumps({\"mode\":row[\"mode\"],\"training\":row[\"training\"],\"evaluation\":row[\"evaluation\"]},sort_keys=True))\nif len(r[\"results\"]) != 2 or any(x[\"evaluation\"][\"unsafe_executed_steps\"] != 0 for x in r[\"results\"]):\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
