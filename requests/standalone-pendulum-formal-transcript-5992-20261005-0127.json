@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-formal-transcript-5992-20261005-0127",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "599255d5815e1bafc8c160c06ecd5a4f05a9302c"
+  },
+  "command": "python3 - <<'PY'\nfrom pathlib import Path\nimport subprocess\nimport sys\nimport formal\n\nroot = Path(\"runs/pendulum-formal-transcript\")\nroot.mkdir(parents=True, exist_ok=False)\nsmv = root / \"model.smv\"\nmodel = Path(\"sysml-models/rotary-inverted-pendulum/model.sysml\").resolve()\nsubprocess.run([sys.executable, str(formal.EXTRACTOR), str(model), \"--dt\", \"0.001\", \"-o\", str(smv)], check=True)\nsource = smv.read_text()\nselected = [o for o in formal._invariant_obligations(source) if o.name in {\"Motor Voltage Within Authorized Range\", \"Controller Supplies State Feedback\"}]\nnuxmv = Path.home() / \"tools/nuxmv/2.2.0/nuxmv-2.2.0.sh\"\nfor o in selected:\n    result = formal._run_obligation(o, source, root / f\"{o.index:03d}-{formal._slug(o.name)}\", nuxmv, 60)\n    print(\"=====\", o.name, result[\"status\"], \"=====\")\n    print(Path(result[\"transcript\"]).read_text())\nPY",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
