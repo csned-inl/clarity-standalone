@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-hand-control-20261005-123350",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "fc642328e6458dea54217bb7c916ad9c9af51785"
+  },
+  "command": "PYTHONPATH=rl python3 - <<'PY'\nimport json, math\nfrom continuous_env import ContinuousSysMLEnv\nfrom hall_motor_shield import HallMotorProjectionShield\nmodel=\"sysml-models/hall-sensored-bldc/model.sysml\"\nshield=HallMotorProjectionShield(model)\nrows=[]\nfor target in (-314.159265358979,314.159265358979):\n  for name,kp in ((\"feedforward\",0.0),(\"p-0.0005\",0.0005),(\"p-0.001\",0.001),(\"p-0.002\",0.002),(\"p-0.005\",0.005),(\"bang-bang\",None)):\n    env=ContinuousSysMLEnv(model,dt=0.00005,max_steps=1000,phase=2,rng_seed=42,terminate_on_violation=False,violation_penalty=0.0,terminating_metadata=frozenset({\"Prohibition\"}))\n    for qname,info in env._scenario_inputs.items():\n      if qname.endswith(\"targetMechanicalSpeedRadiansPerSecond\"):\n        info[\"lower\"]=target;info[\"upper\"]=target;info[\"default\"]=target\n    max_abs_error=0.0;last_speed=0.0;last_info=None\n    try:\n      env.reset()\n      done=False\n      while not done:\n        inputs=env.raw_model_inputs\n        speed=float(inputs[\"estimatedMechanicalSpeedRadiansPerSecond\"])\n        desired=float(inputs[\"targetMechanicalSpeedRadiansPerSecond\"])\n        error=desired-speed\n        if kp is None:\n          proposed=1.0 if error>0.0 else -1.0\n        else:\n          proposed=(0.011744*desired/12.0)+kp*error\n        executed,_,_=shield.select(proposed,inputs)\n        _obs,_reward,done,last_info=env.step([executed])\n        last_speed=speed;max_abs_error=max(max_abs_error,abs(error))\n      rows.append({\"target\":target,\"controller\":name,\"success\":last_info[\"outcome\"]==\"SUCCESS\",\"steps\":last_info[\"step\"],\"outcome\":last_info[\"outcome\"],\"last_estimated_speed\":last_speed,\"max_abs_error\":max_abs_error,\"unsafe\":last_info[\"unsafe_executed\"]})\n    finally:\n      env.close()\nprint(\"HAND_CONTROL_RESULTS\")\nfor row in rows: print(json.dumps(row,sort_keys=True))\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
