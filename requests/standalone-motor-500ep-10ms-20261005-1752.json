@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-500ep-10ms-20261005-1752",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "429e7d87efe21164836ec93eebca344122fd5e4f"
+  },
+  "command": "python3 - <<'PY'\nfrom pathlib import Path\nimport hashlib\nimport re\n\nmodel = Path(\"sysml-models/hall-sensored-bldc/model.sysml\")\nsource = model.read_text()\nold = \"attribute :>> speedControlTicksPerUpdate = 20;\"\nnew = \"attribute :>> speedControlTicksPerUpdate = 200;\"\nif source.count(old) != 1:\n    raise SystemExit(\"expected exactly one controller interval parameter\")\nsource = source.replace(old, new)\nmodel.write_text(source)\n\ndef body(text, start, end):\n    return text.split(start, 1)[1].split(end, 1)[0]\n\nsafety_slice = \"\\n--SLICE--\\n\".join((\n    body(source, \"part def NominalAveragedTwoPhaseMotorPlant\",\n         \"part def HallSensorAndSpeedEstimator\"),\n    body(source, \"part def HallCommutatedDrive\", \"part def SpeedController\"),\n    body(source, \"part def SpeedController\",\n         \"part def HallSensoredBrushlessMotorSystem\"),\n    body(source, \"part def HallSensoredBrushlessMotorSystem\", \"part system\"),\n))\ndigest = hashlib.sha256(safety_slice.encode()).hexdigest()\nverification = Path(\"hall_motor_verification.py\")\nverification_source = verification.read_text()\nverification_source, replacements = re.subn(\n    r'(?<=EXPECTED_SAFETY_SLICE_SHA256 = \\(\\n    \")[0-9a-f]{64}',\n    digest,\n    verification_source,\n)\nif replacements != 1:\n    raise SystemExit(\"failed to pin the experimental safety-slice digest\")\nverification.write_text(verification_source)\nprint(\"controller_decision_interval_seconds=0.01\")\nPY\npython3 hall_motor_training.py --output runs/standalone-motor-500ep-10ms-20261005-1752 --device mps --episodes 500 --episodes-per-update 10 --evaluation-episodes 100 --max-steps 300 --seed 42\npython3 - <<'PY'\nimport json\nfrom pathlib import Path\nr=json.loads(Path(\"runs/standalone-motor-500ep-10ms-20261005-1752/comparison.json\").read_text())\nprint(\"MOTOR_500_EPISODE_10MS_SHIELDED_TRAINING\")\nprint(\"controller_decision_interval_seconds=0.01\")\nfor row in r[\"results\"]:\n    print(json.dumps({\"mode\":row[\"mode\"],\"training\":row[\"training\"],\"evaluation\":row[\"evaluation\"]},sort_keys=True))\nif len(r[\"results\"]) != 2:\n    raise SystemExit(1)\nif not r[\"structural_safety_preflight\"][\"proved\"]:\n    raise SystemExit(1)\nif any(x[\"training\"][\"unsafe_executed_steps\"] != 0 or x[\"evaluation\"][\"unsafe_executed_steps\"] != 0 or x[\"training\"][\"errors\"] or x[\"evaluation\"][\"errors\"] for x in r[\"results\"]):\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
