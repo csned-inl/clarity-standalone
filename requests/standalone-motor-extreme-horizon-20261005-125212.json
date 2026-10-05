@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-extreme-horizon-20261005-125212",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "5f17a50747ff4b52b87305076338dc27e63c0863"
+  },
+  "command": "PYTHONPATH=rl python3 - <<'PY'\nimport json\nfrom continuous_env import ContinuousSysMLEnv\nfrom hall_motor_shield import HallMotorProjectionShield\nmodel=\"sysml-models/hall-sensored-bldc/model.sysml\";shield=HallMotorProjectionShield(model)\nfor target in (-942.477796076938,-628.318530717958,628.318530717958,942.477796076938):\n env=ContinuousSysMLEnv(model,dt=0.00005,max_steps=3000,phase=2,rng_seed=42,terminate_on_violation=False,violation_penalty=0.0,terminating_metadata=frozenset({\"Prohibition\"}))\n for q,b in env._scenario_inputs.items():\n  if q.endswith(\"targetMechanicalSpeedRadiansPerSecond\"): b[\"lower\"]=target;b[\"upper\"]=target;b[\"default\"]=target\n try:\n  env.reset();done=False;info=None;last=0.0\n  while not done:\n   x=env.raw_model_inputs;last=float(x[\"estimatedMechanicalSpeedRadiansPerSecond\"]);desired=float(x[\"targetMechanicalSpeedRadiansPerSecond\"])\n   proposal=(0.011744*desired/12.0)+0.005*(desired-last)\n   executed,_,_=shield.select(proposal,x)\n   _o,_r,done,info=env.step([executed])\n  print(json.dumps({\"target\":target,\"success\":info[\"outcome\"]==\"SUCCESS\",\"outcome\":info[\"outcome\"],\"steps\":info[\"step\"],\"last_speed\":last,\"unsafe\":info[\"unsafe_executed\"]},sort_keys=True))\n finally: env.close()\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
