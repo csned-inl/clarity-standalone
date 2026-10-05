@@ -20,7 +20,8 @@ class ContinuousSysMLEnv(SysMLEnv):
                  max_steps: int = 1200, phase: int = 1,
                  rng_seed: int | None = None, *,
                  terminate_on_violation: bool = True,
-                 violation_penalty: float = 1.0):
+                 violation_penalty: float = 1.0,
+                 terminating_metadata: frozenset[str] | None = None):
         super().__init__(model_path, dt=dt, max_steps=max_steps,
                          phase=phase, rng_seed=rng_seed)
         if (not math.isfinite(violation_penalty)
@@ -28,6 +29,15 @@ class ContinuousSysMLEnv(SysMLEnv):
             raise ValueError("violation_penalty must be finite and nonnegative")
         self.terminate_on_violation = bool(terminate_on_violation)
         self.violation_penalty = float(violation_penalty)
+        self.terminating_metadata = terminating_metadata
+        if terminating_metadata is None:
+            self._terminating_requirement_names = None
+        else:
+            self._terminating_requirement_names = {
+                requirement.name
+                for requirement in self._twin.parser.parsed_requirements
+                if set(requirement.metadata) & set(terminating_metadata)
+            }
         if not self._out_params:
             raise ValueError("model has no #Neural outputs")
         unsupported = [(name, type_name) for name, type_name in self._out_params
@@ -57,8 +67,15 @@ class ContinuousSysMLEnv(SysMLEnv):
         statuses = summarize_events(result.events)
         errors = {name: row["errors"] for name, row in statuses.items()
                   if row["errors"]}
-        violated = self.phase == 2 and any(
-            row["status"] is False for row in statuses.values())
+        violated_names = {
+            name for name, row in statuses.items()
+            if row["status"] is False
+        }
+        terminating_names = (
+            violated_names
+            if self._terminating_requirement_names is None
+            else violated_names & self._terminating_requirement_names)
+        violated = self.phase == 2 and bool(terminating_names)
         if errors or result.error:
             reward, done, outcome = 0.0, True, "ERROR"
         elif violated:
@@ -88,6 +105,8 @@ class ContinuousSysMLEnv(SysMLEnv):
             "outcome": outcome,
             "truncated": truncated,
             "unsafe_executed": violated,
+            "violated_requirements": sorted(violated_names),
+            "terminating_violations": sorted(terminating_names),
             "executed_neural_outputs": actuators,
         }
         observation = (None if result.state is None

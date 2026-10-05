@@ -16,16 +16,26 @@ from continuous_training_modes import (  # noqa: E402
 
 
 class ContinuousTrainingModeTests(unittest.TestCase):
-    def test_only_unshielded_training_has_termination_split(self):
-        self.assertEqual(len(TRAINING_MODES), 4)
+    def reward(self, mode, environment_reward, correction):
+        return training_reward(
+            mode, environment_reward, correction,
+            comparison_abs_tol=1e-6,
+            penalty_cap=1.0,
+            action_error_scale=10.0,
+            max_steps=6000,
+            time_budget=0.10,
+            override_budget=0.05,
+        )
+
+    def test_only_unshielded_mode_terminates_on_prohibition(self):
+        self.assertEqual(len(TRAINING_MODES), 3)
         shielded = [mode for mode in TRAINING_MODES if mode.use_shield]
         self.assertEqual(len(shielded), 2)
         self.assertTrue(all(
-            not mode.terminate_on_unsafe_execution for mode in shielded))
-        self.assertEqual(
-            {mode.terminate_on_unsafe_execution
-             for mode in TRAINING_MODES if not mode.use_shield},
-            {False, True})
+            not mode.terminate_on_prohibition for mode in shielded))
+        unshielded = [mode for mode in TRAINING_MODES if not mode.use_shield]
+        self.assertEqual(len(unshielded), 1)
+        self.assertTrue(unshielded[0].terminate_on_prohibition)
 
     def test_proposal_penalty_is_smooth_and_capped(self):
         self.assertEqual(proposal_penalty(
@@ -37,32 +47,33 @@ class ContinuousTrainingModeTests(unittest.TestCase):
         self.assertGreater(proposal_penalty(
             1_000.0, penalty_cap=1.0, action_error_scale=10.0), -1.0)
 
-    def test_executed_credit_does_not_penalize_safe_intervention(self):
+    def test_terminal_success_is_not_mixed_with_override_punishment(self):
         mode = next(
             row for row in TRAINING_MODES
             if row.name == "shielded_executed_credit")
-        self.assertEqual(training_reward(
-            mode, 1.0, 100.0,
-            comparison_abs_tol=1e-6,
-            penalty_cap=1.0, action_error_scale=10.0), 1.0)
+        self.assertEqual(self.reward(mode, 1.0, 100.0), 1.0)
+
+    def test_override_and_time_costs_are_horizon_normalized(self):
+        mode = next(
+            row for row in TRAINING_MODES
+            if row.name == "shielded_executed_credit")
+        self.assertAlmostEqual(
+            self.reward(mode, -0.01, 1.0), -0.05 / 6000)
+        self.assertAlmostEqual(
+            self.reward(mode, -0.01, 0.0), -0.10 / 6000)
 
     def test_proposal_punishment_replaces_environment_reward(self):
         mode = next(
             row for row in TRAINING_MODES
             if row.name == "shielded_proposal_credit")
-        self.assertAlmostEqual(training_reward(
-            mode, 1.0, 5.0,
-            comparison_abs_tol=1e-6,
-            penalty_cap=1.0, action_error_scale=10.0), -1.0 / 3.0)
+        self.assertAlmostEqual(
+            self.reward(mode, 1.0, 5.0), -1.0 / 3.0)
 
     def test_compliant_proposal_receives_reward_without_punishment(self):
         mode = next(
             row for row in TRAINING_MODES
             if row.name == "shielded_proposal_credit")
-        self.assertEqual(training_reward(
-            mode, 1.0, 0.0,
-            comparison_abs_tol=1e-6,
-            penalty_cap=1.0, action_error_scale=10.0), 1.0)
+        self.assertEqual(self.reward(mode, 1.0, 0.0), 1.0)
 
 
 if __name__ == "__main__":

@@ -4,27 +4,35 @@ This is an experimental comparison for the proved rotary-inverted-pendulum
 model on `codex/pendulum-controller-pipeline`.  It does not change the formal
 proof and it does not label any learned checkpoint as independently safe.
 
-## Four training modes
+## Three training modes
 
 All modes begin with identical GRU weights, scenario seed, PPO settings, and
 episode limits.
 
 | Mode | Plant receives | PPO credits | Unsafe execution ends episode |
 | --- | --- | --- | --- |
-| `unshielded_terminate` | Original proposal | Original proposal | Yes |
-| `unshielded_continue` | Original proposal | Original proposal | No |
+| `unshielded_safety_terminate` | Original proposal | Original proposal | On `#Prohibition` violation |
 | `shielded_executed_credit` | Shield replacement | Executed replacement | No |
 | `shielded_proposal_credit` | Shield replacement | Original proposal | No |
 
-A shield intervention never terminates an episode.  It is a safe transition.
-Only the two unshielded modes differ in whether an action that is actually
-executed and violates a requirement terminates the episode.
+A shield intervention never terminates an episode. It is a safe transition.
+The earlier immediate-termination unshielded mode supplied only one-step
+episodes because nearly every Gaussian proposal violated the exact controller
+equality. The earlier never-terminate mode allowed physically unsafe dynamics
+to run for the complete horizon and diverged. The replacement middle mode
+allows controller-contract mismatch to produce proposal-error learning signal
+but terminates when an executed trajectory violates an actual
+`#Prohibition`, such as leaving the physical balance envelope.
 
 ## Reward
 
-The simulator retains the existing CLARITY rewards: `+1` for terminal
-success, `-0.01` while running, and `0` at truncation. Modes that credit the
-original proposal use
+Terminal success remains `+1`. The raw simulator's step reward is normalized
+for the 6,000-step horizon: ordinary elapsed time has a maximum episode budget
+of `-0.10`, and shield intervention has a maximum episode budget of `-0.05`.
+Thus a nonterminal step receives `-0.10 / max_steps` or, if replaced by the
+shield, `-0.05 / max_steps`. A terminal success step receives only `+1`.
+
+Modes that credit the original proposal use
 
 ```text
 -penalty_cap * abs(proposal - required_action) /
@@ -41,7 +49,9 @@ every sample from a Gaussian policy.
 
 The executed-credit shield mode deliberately omits this proposal penalty.  It
 tests the alternative in which learning credit follows the replacement that
-the plant actually received.
+the plant actually received. Every transition receives exactly one of task
+success, proposal punishment, override punishment, time cost, or truncation;
+these values are not added together.
 
 ## Outputs and interpretation
 

@@ -38,7 +38,8 @@ MODEL = ROOT / "sysml-models" / "rotary-inverted-pendulum" / "model.sysml"
 
 
 def _episode(env, model, shield, mode, device, *, greedy,
-             penalty_cap, action_error_scale):
+             penalty_cap, action_error_scale, max_steps,
+             time_budget, override_budget):
     observation = env.reset()
     hidden = model.initial_hidden(1).to(device)
     trajectory = {
@@ -73,7 +74,10 @@ def _episode(env, model, shield, mode, device, *, greedy,
             mode, environment_reward, correction,
             comparison_abs_tol=shield.comparison_abs_tol,
             penalty_cap=penalty_cap,
-            action_error_scale=action_error_scale)
+            action_error_scale=action_error_scale,
+            max_steps=max_steps,
+            time_budget=time_budget,
+            override_budget=override_budget)
         trajectory["observations"].append(observation)
         trajectory["actions"].append([credited])
         trajectory["rewards"].append(reward)
@@ -117,7 +121,8 @@ def _summarize(rows):
 def run_mode(model_path, out_dir, initial_state, mode, *,
              observation_dimension, action_dimension, device, seed,
              episodes, episodes_per_update, evaluation_episodes, max_steps,
-             penalty_cap, action_error_scale, dt):
+             penalty_cap, action_error_scale, time_budget, override_budget,
+             dt):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -129,8 +134,9 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
     optimizer = ContinuousRecurrentPPO(policy, device=device)
     environment = ContinuousSysMLEnv(
         str(model_path), dt=dt, max_steps=max_steps, phase=2, rng_seed=seed,
-        terminate_on_violation=mode.terminate_on_unsafe_execution,
-        violation_penalty=0.01)
+        terminate_on_violation=mode.terminate_on_prohibition,
+        violation_penalty=0.0,
+        terminating_metadata=frozenset({"Prohibition"}))
     buffer = ContinuousEpisodeBuffer()
     history = []
     try:
@@ -138,7 +144,10 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
             trajectory, stats = _episode(
                 environment, policy, shield, mode, device, greedy=False,
                 penalty_cap=penalty_cap,
-                action_error_scale=action_error_scale)
+                action_error_scale=action_error_scale,
+                max_steps=max_steps,
+                time_budget=time_budget,
+                override_budget=override_budget)
             if stats["error"]:
                 raise RuntimeError(stats["error"])
             buffer.add(trajectory)
@@ -160,15 +169,19 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
     evaluation_environment = ContinuousSysMLEnv(
         str(model_path), dt=dt, max_steps=max_steps, phase=2,
         rng_seed=seed + 10_000,
-        terminate_on_violation=mode.terminate_on_unsafe_execution,
-        violation_penalty=0.01)
+        terminate_on_violation=mode.terminate_on_prohibition,
+        violation_penalty=0.0,
+        terminating_metadata=frozenset({"Prohibition"}))
     evaluation = []
     try:
         for _ in range(evaluation_episodes):
             _trajectory, stats = _episode(
                 evaluation_environment, policy, shield, mode, device,
                 greedy=True, penalty_cap=penalty_cap,
-                action_error_scale=action_error_scale)
+                action_error_scale=action_error_scale,
+                max_steps=max_steps,
+                time_budget=time_budget,
+                override_budget=override_budget)
             evaluation.append(stats)
     finally:
         evaluation_environment.close()
@@ -180,7 +193,9 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
         "mode": mode.name,
         "use_shield": mode.use_shield,
         "credit_action": mode.credit_action,
-        "terminate_on_unsafe_execution": mode.terminate_on_unsafe_execution,
+        "terminate_on_prohibition": mode.terminate_on_prohibition,
+        "termination_scope": (["Prohibition"]
+                              if mode.terminate_on_prohibition else []),
         "training": _summarize(history),
         "evaluation": _summarize(evaluation),
         "checkpoint": str(checkpoint.resolve()),
@@ -203,6 +218,8 @@ def main():
     parser.add_argument("--dt", type=float, default=0.001)
     parser.add_argument("--penalty-cap", type=float, default=1.0)
     parser.add_argument("--action-error-scale", type=float, default=10.0)
+    parser.add_argument("--time-budget", type=float, default=0.10)
+    parser.add_argument("--override-budget", type=float, default=0.05)
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     if args.output.exists():
@@ -212,6 +229,8 @@ def main():
         parser.error("episode and step counts must be positive")
     if args.penalty_cap <= 0.0:
         parser.error("penalty cap must be positive")
+    if min(args.time_budget, args.override_budget) < 0.0:
+        parser.error("time and override budgets must be nonnegative")
 
     device = select_torch_device(args.device)
     shield = ExactContinuousShield(str(args.model.resolve()))
@@ -248,6 +267,8 @@ def main():
             max_steps=args.max_steps,
             penalty_cap=args.penalty_cap,
             action_error_scale=args.action_error_scale,
+            time_budget=args.time_budget,
+            override_budget=args.override_budget,
             dt=args.dt))
     report = {
         "schema": "clarity.continuous-training-comparison.v1",
@@ -260,6 +281,8 @@ def main():
         "evaluation_episodes_per_mode": args.evaluation_episodes,
         "max_steps": args.max_steps,
         "proposal_penalty_cap": args.penalty_cap,
+        "time_penalty_budget": args.time_budget,
+        "override_penalty_budget": args.override_budget,
         "action_error_scale": args.action_error_scale,
         "observation_dimension": observation_dimension,
         "action_dimension": action_dimension,
