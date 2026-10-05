@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-reward-regression-b50d-20261005-050447",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "b50d43a4f03a0001d15cc382684fd4ac50743a03"
+  },
+  "command": "python3 -m unittest discover -s tests -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
