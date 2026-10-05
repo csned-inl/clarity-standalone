@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-corrected-nuxmv-20261005-1605",
+  "resolved_sha": "416531d31ad261de9b880b2ab2a6995337436bbb",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "416531d31ad261de9b880b2ab2a6995337436bbb",
+  "stderr_tail": "",
+  "stdout_tail": "Motor safety verification proved\n{\n  \"nuxmv_verified\": true,\n  \"obligations\": [\n    {\n      \"name\": \"Auxiliary invariant 1\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Auxiliary invariant 2\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Auxiliary invariant 3\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Auxiliary invariant 4\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Auxiliary invariant 5\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Auxiliary invariant 6\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Auxiliary invariant 7\",\n      \"status\": \"proved\"\n    }\n  ],\n  \"structural_verified\": true,\n  \"verified\": true\n}\n",
+  "worker": "ubuntu-blink"
+}
