@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-violation-trace-20261005-1635",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "af626baa6c8cd563e00ac69001f3420ed907a6cf"
+  },
+  "command": "python3 - <<'PY'\nimport sys\nsys.path.insert(0,'rl')\nfrom continuous_env import ContinuousSysMLEnv\noriginal=ContinuousSysMLEnv.step\ndef traced(self, action):\n    result=original(self, action)\n    info=result[3]\n    if info['unsafe_executed']:\n        state=self.process_state\n        keys=['system::plant::energizedPairCurrentAmperes','system::drive::projectedNextPairCurrentAmperes','system::drive::executedSignedDutyFraction','system::drive::currentSafetyFeasible','system::plant::rotorMechanicalSpeedRadiansPerSecond']\n        print('VIOLATION_TRACE',info['violated_requirements'],{k:state.get(k) for k in keys},flush=True)\n    return result\nContinuousSysMLEnv.step=traced\nimport hall_motor_training\nsys.argv=['hall_motor_training.py','--output','runs/standalone-motor-violation-trace-20261005-1635','--device','mps','--episodes','2','--episodes-per-update','1','--evaluation-episodes','1','--max-steps','500','--seed','7']\nraise SystemExit(hall_motor_training.main())\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
