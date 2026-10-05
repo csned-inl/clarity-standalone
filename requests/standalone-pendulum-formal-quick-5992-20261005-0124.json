@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-formal-quick-5992-20261005-0124",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "599255d5815e1bafc8c160c06ecd5a4f05a9302c"
+  },
+  "command": "python3 - <<'PY'\nfrom pathlib import Path\nimport json\nimport subprocess\nimport sys\nimport formal\n\nroot = Path(\"runs/pendulum-formal-quick\")\nroot.mkdir(parents=True, exist_ok=False)\nsmv = root / \"model.smv\"\nmodel = Path(\"sysml-models/rotary-inverted-pendulum/model.sysml\").resolve()\nsubprocess.run([sys.executable, str(formal.EXTRACTOR), str(model), \"--dt\", \"0.001\", \"-o\", str(smv)], check=True)\nsource = smv.read_text()\nnames = {\"Motor Voltage Within Authorized Range\", \"Controller Supplies State Feedback\"}\nselected = [o for o in formal._invariant_obligations(source) if o.name in names]\nassert len(selected) == 2, [(o.name, o.kind) for o in selected]\nnuxmv = Path.home() / \"tools/nuxmv/2.2.0/nuxmv-2.2.0.sh\"\nresults = [formal._run_obligation(o, source, root / f\"{o.index:03d}-{formal._slug(o.name)}\", nuxmv, 60) for o in selected]\nprint(json.dumps(results, indent=2, sort_keys=True))\nif not all(r[\"status\"] == \"proved\" for r in results):\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
