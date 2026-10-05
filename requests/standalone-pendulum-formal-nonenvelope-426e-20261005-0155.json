@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-formal-nonenvelope-426e-20261005-0155",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "426ef0d3a29a6d97d7a69823efe05f81365fecb2"
+  },
+  "command": "python3 - <<'PY'\nfrom pathlib import Path\nimport json, subprocess, sys\nimport formal\nroot=Path(\"runs/pendulum-formal-nonenvelope\"); root.mkdir(parents=True,exist_ok=False)\nsmv=root/\"model.smv\"; model=Path(\"sysml-models/rotary-inverted-pendulum/model.sysml\").resolve()\nsubprocess.run([sys.executable,str(formal.EXTRACTOR),str(model),\"--dt\",\"0.001\",\"-o\",str(smv)],check=True)\nsource=smv.read_text(); selected=[o for o in formal._invariant_obligations(source) if o.name!=\"Stay Within Balance Controller Envelope\"]\nassert len(selected)==4,[(o.name,o.kind) for o in selected]\nnuxmv=Path.home()/\"tools/nuxmv/2.2.0/nuxmv-2.2.0.sh\"\nresults=[formal._run_obligation(o,source,root/f\"{o.index:03d}-{formal._slug(o.name)}\",nuxmv,60) for o in selected]\nprint(json.dumps(results,indent=2,sort_keys=True))\nif not all(r[\"status\"]==\"proved\" for r in results): raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
