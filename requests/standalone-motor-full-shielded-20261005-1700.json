@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-full-shielded-20261005-1700",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "429e7d87efe21164836ec93eebca344122fd5e4f"
+  },
+  "command": "python3 hall_motor_training.py --output runs/standalone-motor-full-shielded-20261005-1700 --device mps --episodes 2000 --episodes-per-update 10 --evaluation-episodes 100 --max-steps 3000 --seed 42 && python3 - <<'PY'\nimport json\nfrom pathlib import Path\nr=json.loads(Path('runs/standalone-motor-full-shielded-20261005-1700/comparison.json').read_text())\nprint('FULL_SHIELDED_MOTOR_TRAINING')\nfor row in r['results']:\n print(json.dumps({'mode':row['mode'],'training':row['training'],'evaluation':row['evaluation']},sort_keys=True))\nif len(r['results']) != 2:\n    raise SystemExit(1)\nif not r['structural_safety_preflight']['proved']:\n    raise SystemExit(1)\nif any(x['training']['unsafe_executed_steps'] != 0 or x['evaluation']['unsafe_executed_steps'] != 0 or x['training']['errors'] or x['evaluation']['errors'] for x in r['results']):\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
