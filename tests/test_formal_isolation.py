@@ -123,6 +123,34 @@ class FormalIsolationTests(unittest.TestCase):
                 result["nuXmv_errors"]
                 for result in report["obligations"]))
 
+    def test_named_direct_certificate_replaces_only_its_solver_obligation(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            fake = self._executable(root, FAKE_NUXMV_WITH_FALSE)
+            calls = []
+
+            def certificate(smv):
+                calls.append(smv)
+                return {"proved": True, "method": "test-certificate"}
+
+            report = verify(
+                MODEL, root / "formal", dt=0.001, nuxmv=fake,
+                timeout_seconds=10,
+                obligation_certifiers={
+                    "Stay Within Balance Controller Envelope": certificate,
+                },
+            )
+
+            self.assertTrue(report["verified"])
+            self.assertEqual(len(calls), 1)
+            result = next(
+                item for item in report["obligations"]
+                if item["name"] == "Stay Within Balance Controller Envelope")
+            self.assertEqual(result["status"], "proved")
+            self.assertEqual(result["method"], "direct-analytical-certificate")
+            persisted = json.loads(Path(result["certificate"]).read_text())
+            self.assertTrue(persisted["proved"])
+
 
 if __name__ == "__main__":
     unittest.main()

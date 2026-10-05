@@ -82,9 +82,13 @@ def prepare(model: Path, out_dir: Path, *, timeout: int,
         if not nuxmv.is_file():
             raise FileNotFoundError(f"nuXmv executable not found: {nuxmv}")
         from formal import verify
+        from pendulum_envelope_certificate import certify as certify_envelope
         formal = verify(
             model, formal_dir, dt=DT_SECONDS, nuxmv=nuxmv,
-            timeout_seconds=timeout)
+            timeout_seconds=timeout,
+            obligation_certifiers={
+                "Stay Within Balance Controller Envelope": certify_envelope,
+            })
         formal["status"] = "proved" if formal["verified"] else "failed"
 
     report = {

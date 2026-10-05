@@ -30,10 +30,12 @@ contract defines a permissive state-dependent safe-action set.
    or model dispatch.
 4. Generate the SMV transition system and assert that the neural output was
    emitted as `real`, not `boolean`.
-5. Run each emitted nuXmv invariant as an independent obligation before
-   training. Every obligation has its own SMV file, process timeout,
-   transcript, and verdict. A failed, timed-out, inconclusive, or missing
-   obligation cannot produce a final controller artifact.
+5. Run each emitted proof obligation independently before training. nuXmv
+   handles the local structural invariants. The continuous balance envelope
+   is compiled from the same emitted transition relation into an exact affine
+   symbolic system and discharged by the finite-prefix plus contraction
+   certifier. A failed, timed-out, inconclusive, or missing obligation cannot
+   produce a final controller artifact.
 6. Generate reachable oracle-cloning data by running the SysML process with
    the exact symbolic shield.
 7. Train the original-size controller backbone: two 64-wide `tanh` encoder
@@ -98,7 +100,8 @@ Its `training_report.json` states both `requires_runtime_shield: true` and
 - A permissive continuous safe-action interval or polytope.
 - Autonomous continuous PPO optimization inside such a safe set.
 - The GitHub-to-personal-Mac compute-request workflow for this repository.
-- A completed nuXmv proof run for the corrected real-valued SMV model.
+- A general piecewise-affine certificate search beyond the recognized
+  deterministic single-parameter scan-cycle subclass.
 
 ## Pendulum verification corrections
 
@@ -128,11 +131,21 @@ results. Overall `verified` is true only if every emitted obligation is
 individually proved.
 
 At corrected source commit `44a28b41224f92454b38b3eae09588cc3ccafb09`,
-the repository's 34 tests pass.  nuXmv independently proves the motor-voltage
+the repository's 34 tests passed. nuXmv independently proved the motor-voltage
 requirement, the controller state-feedback requirement, and both frozen target
-bound auxiliaries.  The balance-envelope requirement alone reaches bound 17
-and times out after 300 seconds.  It is therefore unresolved, the aggregate
-certificate is false, and controller training remains blocked.
+bound auxiliaries. The balance-envelope requirement alone reached bound 17
+and timed out after 300 seconds. That historical result remains evidence that
+the naked IC3 query was inadequate; it is not reported as a counterexample.
+
+The branch now includes a separate exact analytical proof path for that one
+obligation. `symbolic_transition.py` reads the freshly emitted SMV, composes
+scan phases 0 and 1, lowers only recognized affine arithmetic, and slices away
+state that cannot influence pendulum angle or executed voltage.
+`affine_safety_certificate.py` then proves a finite prefix and an unbounded
+block contraction with exact rational arithmetic. It simultaneously proves
+that the +/-10 V amplifier guard is never crossed, which justifies the
+unsaturated affine branch used by the recurrence. See
+`docs/PENDULUM_AFFINE_ENVELOPE_CERTIFICATE.md` for the proof boundary.
 
 Those are separate increments. In particular, the compute bridge must not be
 used to conceal an unproved formal stage or to label exact feedback cloning as

@@ -204,3 +204,26 @@ The corrected emitted model has exactly five invariant obligations.  Four are
 proved and the envelope obligation is unresolved.  Therefore the aggregate
 verification result is **not proved**, and the pipeline must continue to block
 training.  The timeout must not be reported as either safety or unsafety.
+
+## Exact affine envelope certificate
+
+The remaining envelope obligation now has a direct unbounded proof path.  The
+generated SMV transition relation is compiled into an exact-rational
+`AffineTransitionSystem`; the compiler mechanically composes physical scan
+phases 0 and 1 and then derives the closed-loop recurrence `x' = A x + B r +
+c`.  No plant or controller matrix is handwritten in the certifier.
+
+For the current model, the certificate checks 2,600 physical cycles exactly
+and then proves a 2,000-cycle block contraction.  The exact block infinity
+norm is below 0.289.  The same proof bounds every intermediate state in each
+block, including the executed amplifier voltage, so the unsaturated affine
+branch used to derive the recurrence is closed rather than assumed.  The
+reported maxima are below 0.152 radians in the finite prefix, below 0.049
+radians in the unbounded tail, and below 7.911 volts in the unbounded tail,
+against the model's 0.349065850399-radian and 10-volt limits.
+
+The fast path is fail-closed: an unrecognized nonlinear expression, ambiguous
+scan phase, unsupported parameterization, failed contraction, or open actuator
+mode returns no proof.  nuXmv remains responsible for the other four isolated
+obligations.  Full implementation and soundness boundaries are documented in
+[PENDULUM_AFFINE_ENVELOPE_CERTIFICATE.md](PENDULUM_AFFINE_ENVELOPE_CERTIFICATE.md).

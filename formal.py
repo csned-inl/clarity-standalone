@@ -9,6 +9,7 @@ import re
 import subprocess
 import sys
 from pathlib import Path
+from typing import Callable
 
 
 ROOT = Path(__file__).resolve().parent
@@ -141,8 +142,44 @@ def _run_obligation(obligation: Obligation, source: str, directory: Path,
     }
 
 
+def _run_direct_certificate(
+    obligation: Obligation,
+    smv: Path,
+    directory: Path,
+    certifier: Callable[[Path], dict],
+) -> dict:
+    """Run a fail-closed analytical certifier on the full emitted model."""
+    directory.mkdir(parents=True, exist_ok=False)
+    try:
+        certificate = certifier(smv)
+        proved = certificate.get("proved") is True
+        status = "proved" if proved else "inconclusive"
+        error = None
+    except Exception as exc:  # certificate failures are evidence, not crashes
+        certificate = None
+        status = "error"
+        error = f"{type(exc).__name__}: {exc}"
+    certificate_path = directory / "certificate.json"
+    certificate_path.write_text(
+        json.dumps(certificate, indent=2, sort_keys=True) + "\n"
+        if certificate is not None else "null\n")
+    return {
+        "index": obligation.index,
+        "name": obligation.name,
+        "kind": obligation.kind,
+        "status": status,
+        "method": "direct-analytical-certificate",
+        "error": error,
+        "certificate": str(certificate_path.resolve()),
+        "smv": str(smv.resolve()),
+        "smv_sha256": _sha256(smv),
+    }
+
+
 def verify(model: Path, out_dir: Path, *, dt: float, nuxmv: Path,
-           timeout_seconds: int = 300) -> dict:
+           timeout_seconds: int = 300,
+           obligation_certifiers: dict[
+               str, Callable[[Path], dict]] | None = None) -> dict:
     """Extract once and check every invariant in a separate nuXmv process.
 
     A timeout, counterexample, or tool error is recorded for that obligation
@@ -170,11 +207,17 @@ def verify(model: Path, out_dir: Path, *, dt: float, nuxmv: Path,
     obligation_root = out_dir / "obligations"
     obligation_root.mkdir(exist_ok=False)
     results = []
+    obligation_certifiers = obligation_certifiers or {}
     for obligation in obligations:
         directory = obligation_root / (
             f"{obligation.index:03d}-{_slug(obligation.name)}")
-        results.append(_run_obligation(
-            obligation, source, directory, nuxmv, timeout_seconds))
+        if obligation.name in obligation_certifiers:
+            results.append(_run_direct_certificate(
+                obligation, smv, directory,
+                obligation_certifiers[obligation.name]))
+        else:
+            results.append(_run_obligation(
+                obligation, source, directory, nuxmv, timeout_seconds))
 
     requirement_results = [
         result for result in results if result["kind"] == "requirement"]
@@ -185,7 +228,8 @@ def verify(model: Path, out_dir: Path, *, dt: float, nuxmv: Path,
         "model_sha256": _sha256(model),
         "smv": str(smv.resolve()),
         "smv_sha256": _sha256(smv),
-        "method": "isolated-check_invar_ic3",
+        "method": ("hybrid-isolated-ic3-and-direct-certificate"
+                   if obligation_certifiers else "isolated-check_invar_ic3"),
         "timeout_seconds_per_obligation": timeout_seconds,
         "emitted_invarspec_count": len(obligations),
         "requirement_count": len(requirement_results),
