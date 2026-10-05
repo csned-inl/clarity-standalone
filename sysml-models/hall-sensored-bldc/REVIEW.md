@@ -28,9 +28,12 @@ not transferable merely because they use the same motor.
 | Phase switching | NXP S32M244 Hall reference | all 12 direction/Hall phase tuples copied directly |
 | Hall resolution | NXP S32M244 Hall reference | one sector per 60 electrical degrees |
 | Commutation update | NXP S32M244 Hall reference | phase tuple changes atomically at Hall event; double-buffer internals abstracted |
+| Speed estimate | NXP S32M244 Hall reference | actual speed calculated from all six most recent commutation periods |
+| Hall timing | NXP S32M244 Hall reference | asynchronous GPIO interrupt; executable 50 us polling is an explicit project assumption |
 | Current sample period | NXP S32M244 Hall reference | `50 microseconds` |
-| Speed action period | NXP S32M244 Hall reference | `1 millisecond` |
-| Plant realization | CLARITY model design | two-conducting-phase averaged electrical relation and forward Euler |
+| Speed/current action period | NXP S32M244 Hall reference | both controller functions execute every `1 millisecond` |
+| Current limiting | NXP S32M244 Hall reference versus CLARITY model design | source uses two PI outputs and synchronized integrators; executable model uses an explicitly non-equivalent memoryless boundary surrogate because exact gains/state are unavailable |
+| Plant realization | CLARITY model design | nominal scalar two-conducting-phase relation, explicit effective coefficients, zero-load/zero-loss profile, and forward Euler |
 | Target/tolerance | CLARITY scenario design | explicit scenario input and completion tolerance, not motor specifications |
 
 ## Compatibility judgment
@@ -54,6 +57,14 @@ motor properties.
   distinct state symbols.
 - Checked all six CCW and all six CW rows against NXP's Sunrise table.
 - Checked `20 * 0.00005 = 0.001` for the two documented rates.
+- Replaced the incorrect one-period speed estimate with the documented sum of
+  the six most recent commutation periods.
+- Moved current-boundary intervention from the 50 microsecond drive step to the
+  1 millisecond controller boundary. The replacement is deliberately named a
+  surrogate and is not represented as NXP's dual-PI algorithm.
+- Made the pair-level electrical coefficients, effective torque constant,
+  effective bench inertia, external load, loss torque, Hall-capture delay, and
+  current-measurement error explicit assumptions instead of hidden constants.
 - Checked the maximum nameplate-speed electrical increment is below one Hall
   sector per commutation sample.
 - Kept 24 V nameplate, 12 V bench supply, and continuous normalized duty as
@@ -61,11 +72,19 @@ motor properties.
 
 ## Claims not yet made
 
-The initial checks do not prove the reduced electrical dynamics reproduce raw
+The checks do not prove the reduced electrical dynamics reproduce raw
 bench trajectories, that forward Euler preserves every continuous invariant,
 that the current intervention alone proves a 6 A physical-current invariant,
 or that the generated controller is safe. Those require separate tests and
-certificates. In particular, “same-direction voltage is inhibited at the
-sampled current boundary” is the encoded property; it is not silently promoted
-to a stronger continuous-time current theorem.
+certificates. In particular, “same-direction duty is rejected at a sampled
+controller boundary” is the encoded surrogate property; it is not silently
+promoted to a stronger continuous-time current theorem.
 
+The nominal Hall generator cannot emit `000` or `111`, so the closed nominal
+model's invalid-Hall implication is vacuous. The drive relation handles an
+invalid input correctly at its boundary, but a hardware fault-coverage claim
+requires a separate fault-injection environment that can actually produce
+those codes.
+
+See `SOURCE_CONFORMANCE_AUDIT.md` for the impact of every material unsupported
+quantity and the boundary of claims that remain defensible.

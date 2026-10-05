@@ -38,20 +38,26 @@ balance phase. The model includes:
 - continuous mechanical angle, mechanical speed, and energized-pair current;
 - a six-sector quotient/remainder representation of physical electrical angle;
 - distinct sampled Hall, current, and Hall-derived speed state;
+- a six-period Hall speed estimator, matching the public NXP algorithm;
 - the exact Sunrise Hall sequence `110, 100, 101, 001, 011, 010`;
 - NXP's exact clockwise and counterclockwise phase switching table;
 - a continuous signed PWM-duty proposal and a separately executed duty;
-- a 50 microsecond commutation/current-sampling step and a 1 millisecond speed
-  policy update (20 commutation ticks);
+- a 50 microsecond executable plant/current-sampling step, an explicitly
+  bounded-at-50-microseconds Hall-capture approximation, and a 1 millisecond
+  controller update (20 executable ticks);
 - 12 V bench supply context, kept distinct from the motor's 24 V nameplate;
-- invalid-Hall shutdown, duty saturation, and measured-current intervention;
+- invalid-Hall shutdown, duty saturation, and a clearly labeled project-defined
+  current-limit surrogate at the controller rate;
 - a non-unique neural policy contract over the continuous action; and
 - explicit task target and completion tolerance as project scenario data.
 
-The two-phase electrical relation uses the q-axis inductance as the
-torque-channel inductance and represents two conducting phases plus one
-disconnected phase. This is an explicit control-oriented reduction. It does not
-pretend to be a phase-resolved finite-element motor model.
+The source establishes that two phases conduct and the third is disconnected;
+it does **not** provide the scalar plant equation in this model. Doubling the
+listed phase resistance, q-axis inductance, and back-EMF constant, using the
+listed torque constant directly, using the listed inertia as the complete bench
+inertia, and setting external load/loss torque to zero are therefore explicit
+`#ModelAssumption` values. This is a nominal control-oriented profile, not a
+validated phase-resolved motor model or digital twin.
 
 ## State separation
 
@@ -70,10 +76,18 @@ semantics and could make a later Markov or safety certificate unsound.
 
 The policy proposes any real signed duty fraction. Its neural requirement
 restricts issued proposals to `[-1, 1]` and requires zero duty for an invalid
-Hall code. The drive separately implements the physical execution boundary:
-it saturates out-of-range proposals, blocks same-direction voltage at the
-measured current limit, disables on invalid Hall state, and selects the exact
-phase tuple for the current Hall code and direction.
+Hall code. The controller-rate safety surrogate then rejects same-direction
+duty at the configured measured-current threshold. The drive separately
+saturates out-of-range commands, disables on invalid Hall state, and selects the
+exact phase tuple for the current Hall code and direction.
+
+That surrogate is **not** NXP's current controller. NXP executes a current PI
+and speed PI every 1 ms, compares their duty outputs, and synchronizes their
+integrators. The public material does not give enough exact configuration data
+to reproduce that implementation here. The surrogate keeps the executable
+model conservative at its stated boundary, but it changes transient behavior,
+training trajectories, and task performance. A proof of the surrogate is not a
+proof of the omitted NXP dual-PI implementation.
 
 This separation permits the same downstream pipeline to study an unshielded
 policy that already satisfies the neural requirement or a shielded policy that
@@ -82,9 +96,12 @@ in either case.
 
 ## Timing and discretization
 
-The S32M244 reference specifies a 50 microsecond current sampling period and a
-1 millisecond speed-control period. The model's executable realization uses
-forward Euler for the continuous averaged plant at 50 microseconds. At the
+The S32M244 reference uses asynchronous GPIO interrupts for Hall changes, an
+ADC/current path at the fast rate, and a 1 millisecond speed/current-control
+interrupt. The executable runtime currently has one clock, so the model polls
+the Hall sector at 50 microseconds and records that as an explicit maximum
+capture-delay assumption. The model uses forward Euler for the continuous
+averaged plant at the same 50 microseconds. At the
 9000 rpm nameplate speed with two pole pairs, one step moves about 0.0943
 electrical radians, well below the `pi/3` sector width, so at most one Hall
 boundary can be crossed per step inside the declared envelope.
@@ -98,23 +115,27 @@ represented as equations copied verbatim from NXP.
 - INIT, current-sensor calibration, alignment, START, STOP, and fault-clear
   sequencing;
 - a thermal plant, winding-temperature estimate, or temperature trip value;
-- an invented friction coefficient, drag curve, or external-load model;
+- a source-identified friction curve, drag law, external load, or complete
+  bench inertia (the executable nominal profile explicitly sets those missing
+  effects to zero rather than presenting zero as sourced fact);
 - transistor dead time, switching ripple, and individual MOSFET dynamics;
 - phase-resolved magnetic saturation, cogging, and torque ripple;
-- an imported PI controller or gains from a different NXP board/application;
+- NXP's exact current/speed PI gains and integrator state/synchronization
+  behavior (the executable current boundary is a named surrogate);
 - stochastic Hall/current noise; and
 - a claim that the scalar averaged electrical relation is a complete digital
   twin of every winding transient.
 
-These are omissions, not zeros silently asserted as sourced physical facts.
-Adding any of them requires an explicit source-backed extension or a separately
-identified model.
+These gaps materially affect acceleration, equilibrium speed, peak current,
+current-limit timing, training reward, and transfer to hardware. They are
+catalogued in `SOURCE_CONFORMANCE_AUDIT.md`. Adding source-backed behavior must
+replace the corresponding assumption rather than silently coexist with it.
 
 ## Current status
 
-The first draft parses with the standalone SysML parser, preserves all required
-state distinctions, and exposes the exact commutation table and source
-constants for regression tests. Full simulation, formal extraction, action
-shielding, training, and nuXmv support are later pipeline stages and are not
-claimed merely because this source model parses.
-
+The reviewed draft parses and executes with the standalone SysML runtime,
+preserves all required state distinctions, and exposes the exact commutation
+table, six-period estimator, source constants, and assumptions for regression
+tests. This establishes traceability and internal consistency only. It does not
+establish plant-trajectory fidelity, physical current safety, or equivalence to
+NXP's omitted PI configuration.

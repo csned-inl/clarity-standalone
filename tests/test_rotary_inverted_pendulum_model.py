@@ -82,6 +82,14 @@ class RotaryInvertedPendulumModelTests(unittest.TestCase):
         self.assertEqual(resolve_value(engine.state, "system::samplePeriodSeconds"), 0.001)
         self.assertEqual(engine.state["system::amplifier::maximumVoltageMagnitude"], 10.0)
 
+    def test_model_contains_nonsemantic_source_provenance(self):
+        source = MODEL.read_text()
+        self.assertIn("SOURCE PROVENANCE -- comments only", source)
+        self.assertIn("procap2352_rasanenpyrhonen.pdf", source)
+        self.assertIn("QUBE_Servo_2_Product_Info_Sheet_v1.0.pdf", source)
+        self.assertIn("qube_servo2_usb.html", source)
+        self.assertIn("Project-defined, not source equations", source)
+
     def test_amplifier_execution_partition(self):
         cases = [
             (-15.0, -10.0),

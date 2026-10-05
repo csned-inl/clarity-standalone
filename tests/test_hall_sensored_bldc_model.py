@@ -15,6 +15,7 @@ from sysml_parser import SysMLParser  # noqa: E402
 
 MODEL = ROOT / "sysml-models/hall-sensored-bldc/model.sysml"
 README = MODEL.with_name("README.md")
+AUDIT = MODEL.with_name("SOURCE_CONFORMANCE_AUDIT.md")
 
 
 class HallSensoredBldcModelTests(unittest.TestCase):
@@ -55,7 +56,7 @@ class HallSensoredBldcModelTests(unittest.TestCase):
             "system::plant::torqueConstantNewtonMetersPerAmpere": 0.010614,
             "system::plant::rotorInertiaKilogramMetersSquared": 0.000012,
             "system::plant::polePairs": 2.0,
-            "system::drive::currentLimitAmperes": 6.0,
+            "system::controller::configuredCurrentLimitAmperes": 6.0,
             "system::sensor::dcBusVoltageVolts": 12.0,
         }
         for key, value in expected.items():
@@ -134,6 +135,144 @@ class HallSensoredBldcModelTests(unittest.TestCase):
             "sampledElectricalSector < previousElectricalSector or",
             self.source,
         )
+
+    def test_speed_estimator_uses_six_direction_consistent_periods(self):
+        self.assertIn(
+            "periods.currentPeriodSeconds +\n"
+            "                              periods.period1Seconds + periods.period2Seconds +\n"
+            "                              periods.period3Seconds + periods.period4Seconds +\n"
+            "                              periods.period5Seconds",
+            self.source,
+        )
+        self.assertIn("attribute lastTransitionDirection : Integer;", self.source)
+        self.assertIn("assign validCommutationPeriodCount := 1;", self.source)
+        self.assertNotIn(
+            "electricalSectorWidthRadians /\n"
+            "                        (polePairs * secondsSinceLastHallEvent)",
+            self.source,
+        )
+
+        engine = SimulationEngine(self.parser)
+        engine.initialize()
+        engine.model = lambda _inputs: {"proposedSignedDutyFraction": 0.0}
+        for sector in (1, 2, 3, 4, 5, 0):
+            engine.state["system::plant::electricalSector"] = sector
+            engine.step(0.00005)
+        self.assertEqual(
+            engine.state["system::sensor::validCommutationPeriodCount"], 6
+        )
+        self.assertAlmostEqual(
+            engine.state[
+                "system::sensor::estimatedMechanicalSpeedRadiansPerSecond"
+            ],
+            6.0 * 1.047197551197 / (2.0 * 6.0 * 0.00005),
+            places=6,
+        )
+
+        # A reversal begins a fresh direction-consistent window; it must not
+        # average the previous forward intervals into a reverse speed.
+        engine.state["system::plant::electricalSector"] = 5
+        engine.step(0.00005)
+        self.assertEqual(engine.state["system::sensor::lastTransitionDirection"], -1)
+        self.assertEqual(
+            engine.state["system::sensor::validCommutationPeriodCount"], 1
+        )
+        self.assertEqual(
+            engine.state[
+                "system::sensor::estimatedMechanicalSpeedRadiansPerSecond"
+            ],
+            0.0,
+        )
+
+    def test_unsourced_plant_reduction_is_explicit(self):
+        expected = {
+            "system::plant::effectivePairResistanceOhms": 0.384,
+            "system::plant::effectivePairInductanceHenries": 0.000214,
+            "system::plant::effectivePairBackEmfConstantVoltSecondsPerRadian": 0.011744,
+            "system::plant::effectiveTorqueConstantNewtonMetersPerAmpere": 0.010614,
+            "system::plant::effectiveBenchInertiaKilogramMetersSquared": 0.000012,
+            "system::plant::externalLoadTorqueNewtonMeters": 0.0,
+            "system::plant::unmodeledLossTorqueNewtonMeters": 0.0,
+        }
+        for key, value in expected.items():
+            self.assertEqual(self.engine.state[key], value, key)
+
+        for name in (
+            "effectivePairResistanceOhms",
+            "effectivePairInductanceHenries",
+            "effectivePairBackEmfConstantVoltSecondsPerRadian",
+            "effectiveTorqueConstantNewtonMetersPerAmpere",
+            "effectiveBenchInertiaKilogramMetersSquared",
+            "externalLoadTorqueNewtonMeters",
+            "unmodeledLossTorqueNewtonMeters",
+        ):
+            self.assertRegex(
+                self.source,
+                rf"#ModelAssumption attribute {name} : Real;",
+            )
+
+    def test_current_limit_replacement_is_controller_rate_and_not_drive_logic(self):
+        drive = self.source.split("part def HallCommutatedDrive", 1)[1].split(
+            "part def SpeedController", 1
+        )[0]
+        controller = self.source.split("part def SpeedController", 1)[1].split(
+            "part def HallSensoredBrushlessMotorSystem", 1
+        )[0]
+        self.assertNotIn("currentLimitAmperes", drive)
+        self.assertIn("configuredCurrentLimitAmperes", controller)
+        self.assertIn("Current Limit Surrogate", self.source)
+        self.assertIn("speedControlTickCount >= speedControlTicksPerUpdate - 1", controller)
+
+        engine = SimulationEngine(self.parser)
+        engine.initialize()
+        engine.model = lambda _inputs: {"proposedSignedDutyFraction": 0.5}
+        engine.state["system::sensor::currentMeasurementErrorAmperes"] = 10.0
+        for _ in range(20):
+            engine.step(0.00005)
+        self.assertEqual(
+            engine.state[
+                "system::controller::lastCurrentLimitedSignedDutyFraction"
+            ],
+            0.0,
+        )
+        self.assertEqual(
+            engine.state["system::drive::boundedProposedSignedDutyFraction"],
+            0.0,
+        )
+
+    def test_missing_data_impact_and_certificate_boundary_are_documented(self):
+        audit = AUDIT.read_text()
+        for phrase in (
+            "no hardware rise-time claim",
+            "no switching-level voltage/current theorem",
+            "no thermal claim",
+            "RUN-phase claim only",
+            "certificate for the NXP hardware, reference firmware",
+        ):
+            self.assertIn(phrase, audit)
+
+    def test_current_surrogate_is_not_a_physical_six_ampere_invariant(self):
+        engine = SimulationEngine(self.parser)
+        engine.initialize()
+        engine.model = lambda _inputs: {"proposedSignedDutyFraction": 1.0}
+        peak_current = 0.0
+        for _ in range(40):
+            engine.step(0.00005)
+            peak_current = max(
+                peak_current,
+                abs(engine.state["system::plant::energizedPairCurrentAmperes"]),
+            )
+        self.assertGreater(peak_current, 6.0)
+        self.assertIn(
+            "cannot:\n\n- reproduce PI response",
+            AUDIT.read_text(),
+        )
+
+    def test_model_contains_nonsemantic_source_provenance(self):
+        self.assertIn("SOURCE PROVENANCE -- comments only", self.source)
+        self.assertIn("S32M244 - Hall sensor based 6-step BLDC motor control", self.source)
+        self.assertIn("M1_params_Sunrise95.txt", self.source)
+        self.assertIn("AN12435.pdf", self.source)
 
     def test_exact_nxp_phase_table_is_complete(self):
         # phase tuple is (high-side PWM, low-side ON, disconnected)

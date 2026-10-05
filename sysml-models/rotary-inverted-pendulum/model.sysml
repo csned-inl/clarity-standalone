@@ -10,6 +10,35 @@ package RotaryInvertedPendulum {
     metadata def ScenarioInput;
     metadata def ScenarioConstraint;
 
+    /*
+     * SOURCE PROVENANCE -- comments only; no executable semantics
+     *
+     * Primary and controlling process definition:
+     * T. Rasanen and V.-P. Pyrhonen, "State feedback control of a rotary
+     * inverted pendulum," Finnish Society of Automation, 2019.
+     * https://www.automaatioseura.fi/site/assets/files/2398/procap2352_rasanenpyrhonen.pdf
+     * Supports: QUBE-Servo 2 experiment identity; state convention; rounded
+     * equation-24 A/B coefficients; equation-27 velocity estimator; equation-
+     * 32 LQR gain; 1 ms measurements; balance envelope; centered experiment.
+     * This paper is authoritative when other QUBE examples differ.
+     *
+     * Complementary same-platform manufacturer facts only:
+     * Quanser, "QUBE-Servo 2 Product Information Sheet v1.0"
+     * https://www.quanser.com/wp-content/uploads/2017/03/QUBE_Servo_2_Product_Info_Sheet_v1.0.pdf
+     * Quanser, "QUBE-Servo 2 User Manual," v1.0 (archived copy)
+     * https://manuals.plus/m/ec3a4b23ac24cda93b3b79da157bec38b85cd363bd2365b4ebc718ad27be92a5
+     * Quanser QUARC QUBE-Servo 2 device documentation
+     * https://docs.quanser.com/quarc/documentation/qube_servo2_usb.html
+     * Supports: hardware identity/interface and amplifier limits. These
+     * references do not replace the paper's plant matrix or controller.
+     *
+     * Project-defined, not source equations: forward-Euler plant realization,
+     * backward-Euler velocity-filter realization, task completion tolerances,
+     * and the chosen action-execution ordering. The model is balance-phase
+     * only and does not model swing-up, thermal/current dynamics, encoder
+     * quantization, or arbitrary hardware variation.
+     */
+
     // This model is the balance-phase abstraction of the particular
     // QUBE-Servo 2 experiment documented by Rasanen and Pyrhonen (2019).
     // It deliberately does not claim to model swing-up or every QUBE revision.
