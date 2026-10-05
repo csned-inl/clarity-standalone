@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-training-smoke-20261005-101544",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "cad50c9deac83a1005347b8935f5101693c98193"
+  },
+  "command": "python3 -m unittest tests.test_hall_motor_training -v && python3 hall_motor_training.py --output runs/standalone-motor-training-smoke-20261005-101544 --device mps --episodes 2 --episodes-per-update 1 --evaluation-episodes 1 --max-steps 50",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
