@@ -60,10 +60,9 @@ def _episode(env, model, shield, mode, device, *, greedy,
             proposed_tensor = (distribution.mean if greedy
                                else distribution.sample())
         proposed = float(proposed_tensor.reshape(-1)[0].item())
-        required = shield.required_action(env.raw_model_inputs)
-        correction = abs(proposed - required)
-        intervened = correction > shield.comparison_abs_tol
-        executed = required if mode.use_shield else proposed
+        safe_action, intervened, correction = shield.select(
+            proposed, env.raw_model_inputs)
+        executed = safe_action if mode.use_shield else proposed
         credited = executed if mode.credit_action == "executed" else proposed
         credited_tensor = torch.as_tensor(
             [[credited]], dtype=torch.float32, device=device)
@@ -118,15 +117,14 @@ def _summarize(rows):
     }
 
 
-def run_mode(model_path, out_dir, initial_state, mode, *,
+def run_mode(model_path, out_dir, initial_state, mode, *, shield,
              observation_dimension, action_dimension, device, seed,
              episodes, episodes_per_update, evaluation_episodes, max_steps,
              penalty_cap, action_error_scale, time_budget, override_budget,
-             dt):
+             dt, observation_scale=None):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    shield = ExactContinuousShield(str(model_path))
     policy = ContinuousRecurrentActorCritic(
         obs_dim=observation_dimension, action_dim=action_dimension,
         hidden_dim=64).to(device)
@@ -134,6 +132,7 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
     optimizer = ContinuousRecurrentPPO(policy, device=device)
     environment = ContinuousSysMLEnv(
         str(model_path), dt=dt, max_steps=max_steps, phase=2, rng_seed=seed,
+        observation_scale=observation_scale,
         terminate_on_violation=mode.terminate_on_prohibition,
         violation_penalty=0.0,
         terminating_metadata=frozenset({"Prohibition"}))
@@ -169,6 +168,7 @@ def run_mode(model_path, out_dir, initial_state, mode, *,
     evaluation_environment = ContinuousSysMLEnv(
         str(model_path), dt=dt, max_steps=max_steps, phase=2,
         rng_seed=seed + 10_000,
+        observation_scale=observation_scale,
         terminate_on_violation=mode.terminate_on_prohibition,
         violation_penalty=0.0,
         terminating_metadata=frozenset({"Prohibition"}))
@@ -257,7 +257,7 @@ def main():
     for mode in TRAINING_MODES:
         results.append(run_mode(
             args.model.resolve(), args.output / mode.name,
-            initial_state, mode,
+            initial_state, mode, shield=shield,
             observation_dimension=observation_dimension,
             action_dimension=action_dimension,
             device=device, seed=args.seed,
