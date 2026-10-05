@@ -44,31 +44,41 @@ on the declared capture-delay approximation.
 
 NXP executes a speed PI and current-limit PI in the 1 ms interrupt, compares
 their duty outputs, and synchronizes their integrators. The earlier draft used
-a memoryless same-direction cutoff in the 50 microsecond drive step. That was
-not the reference algorithm.
+a memoryless same-direction cutoff at the 1 ms controller boundary. That
+cutoff oscillated between full duty and zero, let the encoded physical current
+rise to roughly 11 A, and was neither the NXP algorithm nor a valid 6 A safety
+mechanism. It has been removed.
 
-The cutoff now runs only at the 1 ms controller boundary and is named a
-`Current Limit Surrogate`. The configured threshold of 6 A is a project
-scenario value chosen to equal the motor nameplate current; it is not claimed
-to be NXP's unpublished Hall-demo setting. The surrogate can reject a command
-that would further drive measured current in the same direction, but it cannot:
+The replacement is a CLARITY exact-model safety filter, not a reconstruction of
+the unavailable NXP gains. At every 50 microsecond plant step it:
 
-- reproduce PI response or anti-windup behavior;
-- prove the continuous physical current never exceeds 6 A;
-- model current decay during the 1 ms hold interval;
-- establish equivalence to the reference firmware; or
-- predict the same RL training trajectory or task completion time.
+1. advances an observer using the plant's exact initial state, previous
+   executed duty, coefficients, and forward-Euler recurrence;
+2. solves the electrical recurrence algebraically for the full duty interval
+   that makes the next pair current lie in `[-6 A, 6 A]`; and
+3. projects the bounded policy proposal onto that interval, or shuts down if
+   the interval is infeasible.
 
-The exact reference controller requires its configured current threshold, PI
+Induction establishes observer/plant equality for the encoded transition, and
+substitution establishes the one-step current invariant. An adversarial
+12,000-step reversal test exercises the executable relation independently.
+The certificate also checks interval feasibility over the declared current and
+speed envelope. These facts prove the model's discrete pair-current property;
+they do not reproduce PI response, establish robustness to parameter error, or
+bound unmodeled switching ripple in hardware.
+
+The exact reference controller still requires its configured threshold, PI
 gains, numerical scaling, saturation behavior, integrator initial state, and
 integrator synchronization semantics.
 
-An adversarial executable check makes the limitation concrete: under the
-nominal plant and a held full-positive-duty proposal, physical pair current
-exceeds 6 A shortly after the first controller update even though the surrogate
-requirement remains true at its own sampled boundary. This is expected for the
-weaker relation and is retained as a regression against any future attempt to
-rename it as a physical-current invariant.
+### Target envelope
+
+The motor's 9000 rpm value is a 24 V nameplate maximum, not a justified 12 V
+training target. The exact-part NXP parameter profile separately gives
+`N_nom=4000 rpm` and `N_max=5500 rpm`. The scenario target is now capped at the
+published nominal 4000 rpm (`418.879020... rad/s`); the 9000 rpm nameplate is
+retained only as the execution safety envelope. The 5 rad/s completion
+tolerance remains project-defined and is identified as such.
 
 ## Assumption-impact register
 
@@ -82,7 +92,7 @@ rename it as a physical-current invariant.
 | PWM switching and phase ripple | averaged pair voltage | hides switching peaks, torque ripple, diode/freewheel behavior, and dead time | no switching-level voltage/current theorem |
 | Current sensing | physical pair current plus fixed zero error | omits ADC quantization, amplifier offset, filter dynamics, and active-PWM sampling geometry | ideal-measurement profile only |
 | Hall capture | 50 us polling bound | delays commutation and perturbs speed timestamps | bounded-delay sampled profile only |
-| Current controller | 1 ms memoryless directional rejection | changes transient current, duty, anti-windup, and learned policy distribution | surrogate boundary property only |
+| Current controller | 50 us exact-model predictive projection | differs from NXP PI dynamics and is sensitive to every encoded coefficient | discrete encoded pair-current invariant only |
 | Thermal state | excluded | current-safe-looking traces may still overheat the winding or inverter | no thermal claim |
 | Startup/alignment/stop/reversal sequence | excluded; RUN begins aligned | hides high startup current and transition faults | RUN-phase claim only |
 | Hall and power-stage faults | nominal Hall generator plus drive invalid-code branch | invalid-code requirement is vacuous in the closed nominal model | boundary behavior, not fault coverage |
@@ -99,7 +109,7 @@ rename it as a physical-current invariant.
 - asynchronous Hall-event architecture represented with an explicit bounded
   polling approximation;
 - six-period speed-estimation structure;
-- 1 ms controller timing; and
+- 1 ms neural proposal timing and 50 us plant/current-filter timing; and
 - separation of physical state, sampled state, proposed command, limited
   command, and executed drive command.
 
@@ -107,9 +117,9 @@ rename it as a physical-current invariant.
 
 A certificate generated from this file is sound only for the transition system
 actually encoded, including every `#ModelAssumption`. It must identify the
-model/source digest and assumption profile. It must not be described as a
-certificate for the NXP hardware, reference firmware, physical 6 A current
-limit, or omitted operating phases.
+model/source digest and assumption profile. Its 6 A statement is about the
+encoded forward-Euler pair current. It must not be described as a certificate for the NXP hardware, reference firmware, switching-level phase-current peaks,
+parameter uncertainty, or omitted operating phases.
 
 The next fidelity upgrade should replace one assumption at a time with either
 source-backed data or measured identification and then rerun both the structural

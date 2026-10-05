@@ -46,10 +46,11 @@ balance phase. The model includes:
   bounded-at-50-microseconds Hall-capture approximation, and a 1 millisecond
   controller update (20 executable ticks);
 - 12 V bench supply context, kept distinct from the motor's 24 V nameplate;
-- invalid-Hall shutdown, duty saturation, and a clearly labeled project-defined
-  current-limit surrogate at the controller rate;
+- invalid-Hall shutdown, proposal saturation, and a project-defined predictive
+  current-safety projection at the 50 microsecond plant rate;
 - a non-unique neural policy contract over the continuous action; and
-- explicit task target and completion tolerance as project scenario data.
+- a task target envelope capped at the exact motor profile's published
+  `N_nom=4000 rpm`, plus a project-defined completion tolerance.
 
 The source establishes that two phases conduct and the third is disconnected;
 it does **not** provide the scalar plant equation in this model. Doubling the
@@ -76,18 +77,22 @@ semantics and could make a later Markov or safety certificate unsound.
 
 The policy proposes any real signed duty fraction. Its neural requirement
 restricts issued proposals to `[-1, 1]` and requires zero duty for an invalid
-Hall code. The controller-rate safety surrogate then rejects same-direction
-duty at the configured measured-current threshold. The drive separately
-saturates out-of-range commands, disables on invalid Hall state, and selects the
-exact phase tuple for the current Hall code and direction.
+Hall code. The drive saturates that proposal, disables invalid Hall input, and
+projects valid-Hall duty onto the complete one-step interval obtained by
+solving the encoded forward-Euler current recurrence for
+`|current_next| <= 6 A`. An exact-model observer advances from the same initial
+state with the same previous executed duty and the same coefficients as the
+plant. Source-shape and algebraic certificates check those equalities
+fail-closed.
 
-That surrogate is **not** NXP's current controller. NXP executes a current PI
+This projection is **not** NXP's current controller. NXP executes a current PI
 and speed PI every 1 ms, compares their duty outputs, and synchronizes their
 integrators. The public material does not give enough exact configuration data
-to reproduce that implementation here. The surrogate keeps the executable
-model conservative at its stated boundary, but it changes transient behavior,
-training trajectories, and task performance. A proof of the surrogate is not a
-proof of the omitted NXP dual-PI implementation.
+to reproduce that implementation. The replacement is a CLARITY safety filter:
+it proves physical pair-current safety only for the exact discrete plant
+encoded here and only while its explicit assumptions hold. It does not prove
+the NXP hardware current waveform, switching peaks, parameter robustness, or
+equivalence to the omitted dual-PI firmware.
 
 This separation permits the same downstream pipeline to study an unshielded
 policy that already satisfies the neural requirement or a shielded policy that
@@ -121,21 +126,23 @@ represented as equations copied verbatim from NXP.
 - transistor dead time, switching ripple, and individual MOSFET dynamics;
 - phase-resolved magnetic saturation, cogging, and torque ripple;
 - NXP's exact current/speed PI gains and integrator state/synchronization
-  behavior (the executable current boundary is a named surrogate);
+  behavior (the executable current projection is a different, explicitly
+  identified CLARITY safety filter);
 - stochastic Hall/current noise; and
 - a claim that the scalar averaged electrical relation is a complete digital
   twin of every winding transient.
 
-These gaps materially affect acceleration, equilibrium speed, peak current,
-current-limit timing, training reward, and transfer to hardware. They are
+These gaps materially affect acceleration, equilibrium speed, switching peak
+current, intervention timing, training reward, and transfer to hardware. They are
 catalogued in `SOURCE_CONFORMANCE_AUDIT.md`. Adding source-backed behavior must
 replace the corresponding assumption rather than silently coexist with it.
 
 ## Current status
 
-The reviewed draft parses and executes with the standalone SysML runtime,
+The reviewed model parses and executes with the standalone SysML runtime,
 preserves all required state distinctions, and exposes the exact commutation
 table, six-period estimator, source constants, and assumptions for regression
-tests. This establishes traceability and internal consistency only. It does not
-establish plant-trajectory fidelity, physical current safety, or equivalence to
-NXP's omitted PI configuration.
+tests. For the encoded forward-Euler transition, the predictive projection and
+its independent certificate establish the declared 6 A pair-current invariant.
+That theorem is an internal model theorem, not plant-trajectory validation or
+equivalence to NXP's omitted PI configuration.

@@ -32,7 +32,7 @@ class HallMotorProjectionShield:
             executed = 0.0
             correction = abs(proposal)
         else:
-            bound = self.contract.controller_contract_bound
+            bound = self.contract.maximum_duty_magnitude
             executed = min(bound, max(-bound, proposal))
             correction = abs(proposal - executed)
         intervened = correction > self.comparison_abs_tol
@@ -42,7 +42,11 @@ class HallMotorProjectionShield:
         return {
             "contract_kind": "bounded_real_with_invalid_hall_zero",
             "output_name": "proposedSignedDutyFraction",
-            "bound": self.contract.controller_contract_bound,
+            "bound": self.contract.maximum_duty_magnitude,
             "valid_hall_codes": list(self.contract.valid_hall_codes),
             "execution_rule": "clip valid-Hall proposals; zero invalid-Hall proposals",
+            "scope": (
+                "neural proposal contract only; the SysML drive independently "
+                "projects executed duty onto its exact-model current-safe interval"
+            ),
         }

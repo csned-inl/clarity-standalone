@@ -26,6 +26,10 @@ from continuous_model import (  # noqa: E402
 from continuous_training_experiments import run_mode  # noqa: E402
 from continuous_training_modes import TRAINING_MODES  # noqa: E402
 from hall_motor_shield import HallMotorProjectionShield  # noqa: E402
+from hall_motor_verification import (  # noqa: E402
+    certify_structure,
+    compile_contract,
+)
 
 
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
@@ -57,11 +61,26 @@ def main() -> int:
         parser.error("episodes-per-update cannot exceed episodes")
 
     model_path = args.model.resolve()
+    # Training is downstream of the cheap structural gate.  Refuse to spend
+    # compute on a model whose recognized safety transition is inconsistent.
+    contract = compile_contract(model_path)
+    preflight = certify_structure(contract)
+    if not preflight["proved"]:
+        parser.error("Hall-motor structural safety preflight did not prove")
     device = select_torch_device(args.device)
     shield = HallMotorProjectionShield(model_path)
+    observation_scales = {
+        "estimatedMechanicalSpeedRadiansPerSecond":
+            contract.maximum_speed_radians_per_second,
+        "sampledPairCurrentAmperes": contract.current_limit_amperes,
+        "hallCode": 6.0,
+        "targetMechanicalSpeedRadiansPerSecond":
+            contract.maximum_target_radians_per_second,
+    }
     probe = ContinuousSysMLEnv(
         str(model_path), dt=DT_SECONDS, max_steps=args.max_steps,
-        phase=1, rng_seed=args.seed)
+        phase=1, rng_seed=args.seed,
+        observation_scales=observation_scales)
     try:
         observation_dimension = probe.obs_dim
         action_dimension = probe.action_dim
@@ -99,6 +118,10 @@ def main() -> int:
             time_budget=args.time_budget,
             override_budget=args.override_budget,
             dt=DT_SECONDS,
+            observation_scales=observation_scales,
+            executed_action_state_key=(
+                "system::drive::executedSignedDutyFraction"
+            ),
         ))
 
     report = {
@@ -120,6 +143,7 @@ def main() -> int:
         "observation_dimension": observation_dimension,
         "action_dimension": action_dimension,
         "shield": shield.report(),
+        "structural_safety_preflight": preflight,
         "common_initial_weights": True,
         "experimental_only": True,
         "results": results,

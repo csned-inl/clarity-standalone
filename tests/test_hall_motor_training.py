@@ -36,6 +36,28 @@ class HallMotorTrainingTests(unittest.TestCase):
         self.assertEqual(report["contract_kind"],
                          "bounded_real_with_invalid_hall_zero")
         self.assertEqual(report["valid_hall_codes"], [1, 2, 3, 4, 5, 6])
+        self.assertIn("current-safe interval", report["scope"])
+
+    def test_ppo_records_sampled_proposal_not_projected_execution(self):
+        source = (ROOT / "continuous_training_experiments.py").read_text()
+        self.assertIn('trajectory["actions"].append([proposed])', source)
+        self.assertIn("distribution.log_prob(proposed_tensor)", source)
+        self.assertNotIn('trajectory["actions"].append([credited])', source)
+        self.assertNotIn("distribution.log_prob(credited_tensor)", source)
+        self.assertIn("correction = abs(proposed - process_action)", source)
+        training = (ROOT / "hall_motor_training.py").read_text()
+        self.assertIn(
+            '"system::drive::executedSignedDutyFraction"', training
+        )
+
+    def test_environment_excludes_completion_and_has_no_constructor_step(self):
+        source = (ROOT / "rl" / "env.py").read_text()
+        self.assertIn('if "Completion" not in p.metadata', source)
+        compute_scale = source.split(
+            "def _compute_obs_scale", 1
+        )[1].split("def _sample_scenario", 1)[0]
+        self.assertNotIn("self._twin(", compute_scale)
+        self.assertIn("observation_scales", compute_scale)
 
 
 if __name__ == "__main__":

@@ -32,9 +32,10 @@ not transferable merely because they use the same motor.
 | Hall timing | NXP S32M244 Hall reference | asynchronous GPIO interrupt; executable 50 us polling is an explicit project assumption |
 | Current sample period | NXP S32M244 Hall reference | `50 microseconds` |
 | Speed/current action period | NXP S32M244 Hall reference | both controller functions execute every `1 millisecond` |
-| Current limiting | NXP S32M244 Hall reference versus CLARITY model design | source uses two PI outputs and synchronized integrators; executable model uses an explicitly non-equivalent memoryless boundary surrogate because exact gains/state are unavailable |
+| Current limiting | NXP S32M244 Hall reference versus CLARITY model design | source uses two PI outputs and synchronized integrators; executable model uses an explicitly non-equivalent 50 us exact-model duty projection because exact gains/state are unavailable |
 | Plant realization | CLARITY model design | nominal scalar two-conducting-phase relation, explicit effective coefficients, zero-load/zero-loss profile, and forward Euler |
-| Target/tolerance | CLARITY scenario design | explicit scenario input and completion tolerance, not motor specifications |
+| Target envelope | NXP exact-part parameter profile | symmetric target capped at published `N_nom=4000 rpm`; 9000 rpm remains nameplate safety envelope |
+| Completion tolerance | CLARITY scenario design | 5 rad/s project-defined completion threshold |
 
 ## Compatibility judgment
 
@@ -49,7 +50,7 @@ motor properties.
 ## Initial checks
 
 - Parsed the package, five part definitions, four system part instances, three
-  item connections, two physical flows, one actuator state machine, and four
+  item connections, two physical flows, one actuator state machine, and eight
   requirements with the standalone parser.
 - Confirmed the proposal state machine partitions all real duty proposals into
   above-range, below-range, and in-range cases.
@@ -59,9 +60,13 @@ motor properties.
 - Checked `20 * 0.00005 = 0.001` for the two documented rates.
 - Replaced the incorrect one-period speed estimate with the documented sum of
   the six most recent commutation periods.
-- Moved current-boundary intervention from the 50 microsecond drive step to the
-  1 millisecond controller boundary. The replacement is deliberately named a
-  surrogate and is not represented as NXP's dual-PI algorithm.
+- Removed the unsafe 1 ms memoryless cutoff and added a 50 microsecond
+  exact-model projection derived from the encoded electrical recurrence. The
+  replacement is deliberately identified as a CLARITY filter and is not
+  represented as NXP's dual-PI algorithm.
+- Checked plant/observer equality by source-shape validation and executable
+  induction, all three projection regions algebraically, interval feasibility
+  over the declared envelope, and 12,000 adversarial reversal steps.
 - Made the pair-level electrical coefficients, effective torque constant,
   effective bench inertia, external load, loss torque, Hall-capture delay, and
   current-measurement error explicit assumptions instead of hidden constants.
@@ -72,13 +77,13 @@ motor properties.
 
 ## Claims not yet made
 
-The checks do not prove the reduced electrical dynamics reproduce raw
-bench trajectories, that forward Euler preserves every continuous invariant,
-that the current intervention alone proves a 6 A physical-current invariant,
-or that the generated controller is safe. Those require separate tests and
-certificates. In particular, “same-direction duty is rejected at a sampled
-controller boundary” is the encoded surrogate property; it is not silently
-promoted to a stronger continuous-time current theorem.
+The checks prove the 6 A current invariant of the encoded discrete recurrence;
+they do not prove that the reduced electrical dynamics reproduce raw bench
+trajectories, that forward Euler preserves an unmodeled continuous-time
+waveform invariant, or that the hardware remains within 6 A under parameter
+error and switching ripple. The policy contract, exact-model filter, and Hall
+relation are separate assumptions/guarantees rather than a claim that the
+generated neural controller itself implements NXP's PI firmware.
 
 The nominal Hall generator cannot emit `000` or `111`, so the closed nominal
 model's invalid-Hall implication is vacuous. The drive relation handles an

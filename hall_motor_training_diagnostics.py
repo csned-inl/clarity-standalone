@@ -2,9 +2,10 @@
 """Short PPO ablations for diagnosing Hall-motor training behavior.
 
 This is an experimental diagnostic, not a deployable training entry point.
-It intentionally compares the current executed-action likelihood accounting
-against an on-policy proposal likelihood and then adds bounded exploration
-and a model-derived speed-error progress reward one factor at a time.
+Every configuration uses the mathematically correct on-policy proposal
+likelihood.  The remaining ablations compare exploration, reward shape, and
+target randomization without reintroducing the invalid executed-action PPO
+accounting that this diagnostic exposed.
 """
 
 from __future__ import annotations
@@ -32,6 +33,7 @@ from continuous_model import (  # noqa: E402
 from continuous_ppo import ContinuousEpisodeBuffer, ContinuousRecurrentPPO  # noqa: E402
 from continuous_training_modes import TRAINING_MODES, training_reward  # noqa: E402
 from hall_motor_shield import HallMotorProjectionShield  # noqa: E402
+from hall_motor_verification import compile_contract  # noqa: E402
 
 
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
@@ -44,37 +46,32 @@ EXECUTED_MODE = next(
 
 CONFIGURATIONS = (
     {
-        "name": "current_fixed_sparse",
+        "name": "unbounded_fixed_sparse",
         "bounded": False,
-        "record": "executed",
         "reward": "sparse",
         "fixed_target": True,
     },
     {
         "name": "on_policy_fixed_sparse",
         "bounded": False,
-        "record": "proposal",
         "reward": "sparse",
         "fixed_target": True,
     },
     {
         "name": "bounded_fixed_sparse",
         "bounded": True,
-        "record": "proposal",
         "reward": "sparse",
         "fixed_target": True,
     },
     {
         "name": "bounded_fixed_progress",
         "bounded": True,
-        "record": "proposal",
         "reward": "progress",
         "fixed_target": True,
     },
     {
         "name": "bounded_random_progress",
         "bounded": True,
-        "record": "proposal",
         "reward": "progress",
         "fixed_target": False,
     },
@@ -95,10 +92,19 @@ def _fix_target(environment, target: float) -> None:
 
 def _environment(model: Path, *, seed: int, max_steps: int,
                  fixed_target: bool):
+    contract = compile_contract(model)
     environment = ContinuousSysMLEnv(
         str(model), dt=DT_SECONDS, max_steps=max_steps, phase=2,
         rng_seed=seed, terminate_on_violation=False, violation_penalty=0.0,
-        terminating_metadata=frozenset({"Prohibition"}))
+        terminating_metadata=frozenset({"Prohibition"}),
+        observation_scales={
+            "estimatedMechanicalSpeedRadiansPerSecond":
+                contract.maximum_speed_radians_per_second,
+            "sampledPairCurrentAmperes": contract.current_limit_amperes,
+            "hallCode": 6.0,
+            "targetMechanicalSpeedRadiansPerSecond":
+                contract.maximum_target_radians_per_second,
+        })
     if fixed_target:
         _fix_target(environment, FIXED_TARGET)
     return environment
@@ -136,6 +142,11 @@ def _episode(environment, policy, shield, device, config, *, max_steps: int,
         executed, intervened, correction = shield.select(proposal, before)
         next_observation, environment_reward, done, info = environment.step(
             [executed])
+        process_action = float(info["state"][
+            "system::drive::executedSignedDutyFraction"
+        ])
+        correction = abs(proposal - process_action)
+        intervened = correction > shield.comparison_abs_tol
 
         if config["reward"] == "progress" and not done:
             after = environment.raw_model_inputs
@@ -157,13 +168,10 @@ def _episode(environment, policy, shield, device, config, *, max_steps: int,
                 max_steps=max_steps, time_budget=0.10,
                 override_budget=0.05)
 
-        recorded = executed if config["record"] == "executed" else proposal
-        recorded_tensor = torch.as_tensor(
-            [[recorded]], dtype=torch.float32, device=device)
         log_probability = float(
-            distribution.log_prob(recorded_tensor).reshape(-1)[0].item())
+            distribution.log_prob(sample).reshape(-1)[0].item())
         trajectory["observations"].append(observation)
-        trajectory["actions"].append([recorded])
+        trajectory["actions"].append([proposal])
         trajectory["rewards"].append(float(reward))
         trajectory["values"].append(float(value.reshape(-1)[0].item()))
         trajectory["log_prob"].append(log_probability)

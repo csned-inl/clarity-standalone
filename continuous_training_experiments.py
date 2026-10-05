@@ -39,7 +39,8 @@ MODEL = ROOT / "sysml-models" / "rotary-inverted-pendulum" / "model.sysml"
 
 def _episode(env, model, shield, mode, device, *, greedy,
              penalty_cap, action_error_scale, max_steps,
-             time_budget, override_budget):
+             time_budget, override_budget,
+             executed_action_state_key=None):
     observation = env.reset()
     hidden = model.initial_hidden(1).to(device)
     trajectory = {
@@ -60,15 +61,32 @@ def _episode(env, model, shield, mode, device, *, greedy,
             proposed_tensor = (distribution.mean if greedy
                                else distribution.sample())
         proposed = float(proposed_tensor.reshape(-1)[0].item())
-        safe_action, intervened, correction = shield.select(
+        safe_action, _contract_intervened, _contract_correction = shield.select(
             proposed, env.raw_model_inputs)
         executed = safe_action if mode.use_shield else proposed
-        credited = executed if mode.credit_action == "executed" else proposed
-        credited_tensor = torch.as_tensor(
-            [[credited]], dtype=torch.float32, device=device)
+        # PPO is on-policy with respect to the sampled policy proposal.  The
+        # shield changes the environment transition and reward semantics; it
+        # does not retroactively change which random variable the policy
+        # sampled.  Scoring an executed/projected action under the proposal
+        # density is mathematically wrong whenever the shield intervenes.
         log_probability = float(
-            distribution.log_prob(credited_tensor).reshape(-1)[0].item())
+            distribution.log_prob(proposed_tensor).reshape(-1)[0].item())
         next_observation, environment_reward, done, info = env.step([executed])
+        # Some models contain a second, plant-facing safety projection (the
+        # Hall motor's current-safe duty filter).  Reward attribution must use
+        # the action that the process actually executed, while PPO likelihood
+        # remains attached to the sampled proposal.
+        process_action = executed
+        if mode.use_shield and executed_action_state_key is not None:
+            state = info.get("state") or {}
+            if executed_action_state_key not in state:
+                raise RuntimeError(
+                    "executed action is absent from simulator state: "
+                    f"{executed_action_state_key}"
+                )
+            process_action = float(state[executed_action_state_key])
+        correction = abs(proposed - process_action)
+        intervened = correction > shield.comparison_abs_tol
         reward = training_reward(
             mode, environment_reward, correction,
             comparison_abs_tol=shield.comparison_abs_tol,
@@ -78,7 +96,7 @@ def _episode(env, model, shield, mode, device, *, greedy,
             time_budget=time_budget,
             override_budget=override_budget)
         trajectory["observations"].append(observation)
-        trajectory["actions"].append([credited])
+        trajectory["actions"].append([proposed])
         trajectory["rewards"].append(reward)
         trajectory["values"].append(float(value.reshape(-1)[0].item()))
         trajectory["log_prob"].append(log_probability)
@@ -121,7 +139,8 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
              observation_dimension, action_dimension, device, seed,
              episodes, episodes_per_update, evaluation_episodes, max_steps,
              penalty_cap, action_error_scale, time_budget, override_budget,
-             dt):
+             dt, observation_scales=None,
+             executed_action_state_key=None):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -134,7 +153,8 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
         str(model_path), dt=dt, max_steps=max_steps, phase=2, rng_seed=seed,
         terminate_on_violation=mode.terminate_on_prohibition,
         violation_penalty=0.0,
-        terminating_metadata=frozenset({"Prohibition"}))
+        terminating_metadata=frozenset({"Prohibition"}),
+        observation_scales=observation_scales)
     buffer = ContinuousEpisodeBuffer()
     history = []
     try:
@@ -145,7 +165,8 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
                 action_error_scale=action_error_scale,
                 max_steps=max_steps,
                 time_budget=time_budget,
-                override_budget=override_budget)
+                override_budget=override_budget,
+                executed_action_state_key=executed_action_state_key)
             if stats["error"]:
                 raise RuntimeError(stats["error"])
             buffer.add(trajectory)
@@ -169,7 +190,8 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
         rng_seed=seed + 10_000,
         terminate_on_violation=mode.terminate_on_prohibition,
         violation_penalty=0.0,
-        terminating_metadata=frozenset({"Prohibition"}))
+        terminating_metadata=frozenset({"Prohibition"}),
+        observation_scales=observation_scales)
     evaluation = []
     try:
         for _ in range(evaluation_episodes):
@@ -179,7 +201,8 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
                 action_error_scale=action_error_scale,
                 max_steps=max_steps,
                 time_budget=time_budget,
-                override_budget=override_budget)
+                override_budget=override_budget,
+                executed_action_state_key=executed_action_state_key)
             evaluation.append(stats)
     finally:
         evaluation_environment.close()

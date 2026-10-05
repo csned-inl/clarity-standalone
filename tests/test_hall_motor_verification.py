@@ -54,7 +54,11 @@ class HallMotorVerificationTests(unittest.TestCase):
         self.assertTrue(certificate["proved"])
         self.assertEqual(len(certificate["checks"]), 21)
         self.assertIn(
-            "physical current remains within 6 A",
+            "physical pair current in the encoded forward-Euler process",
+            certificate["scope"],
+        )
+        self.assertIn(
+            "equivalence to NXP's unpublished dual-PI numerical configuration",
             certificate["explicit_non_claims"],
         )
         valid_cases = [
@@ -69,12 +73,11 @@ class HallMotorVerificationTests(unittest.TestCase):
             source = smv.read_text()
 
         self.assertEqual(
-            len(re.findall(r"^INVARSPEC\b", source, re.MULTILINE)), 6)
-        self.assertIn("Current Limit Surrogate Opposes Further Increase", source)
-        self.assertIn("exact source commutation table", source)
+            len(re.findall(r"^INVARSPEC\b", source, re.MULTILINE)), 7)
+        self.assertIn("projected_next_current", source)
+        self.assertIn("safe_lower", source)
         self.assertNotIn("rotorMechanicalAngle", source)
-        self.assertNotIn("energizedPairCurrentRate", source)
-        self.assertNotIn("physical current remains within", source)
+        self.assertNotIn("secondsSinceLastHallEvent", source)
 
     def test_phase_table_drift_is_rejected_before_proof(self):
         source = MODEL.read_text()
@@ -98,10 +101,12 @@ class HallMotorVerificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "safety-slice digest"):
                 compile_contract(changed)
 
-    def test_limiter_drift_is_rejected_before_proof(self):
+    def test_projection_drift_is_rejected_before_proof(self):
         source = MODEL.read_text().replace(
-            "policyCall.proposedSignedDutyFraction > 0.0",
-            "policyCall.proposedSignedDutyFraction < 0.0",
+            "configuredCurrentLimitAmperes -\n"
+            "                    safetyObserverPairCurrentAmperes",
+            "configuredCurrentLimitAmperes +\n"
+            "                    safetyObserverPairCurrentAmperes",
             1,
         )
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
@@ -124,7 +129,7 @@ class HallMotorVerificationTests(unittest.TestCase):
             self.assertTrue(report["structural_verified"])
             self.assertTrue(report["nuxmv_verified"])
             obligations = report["nuxmv"]["obligations"]
-            self.assertEqual(len(obligations), 6)
+            self.assertEqual(len(obligations), 7)
             for obligation in obligations:
                 self.assertEqual(obligation["status"], "proved")
                 isolated = Path(obligation["smv"]).read_text()

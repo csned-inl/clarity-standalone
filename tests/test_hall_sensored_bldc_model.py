@@ -38,7 +38,7 @@ class HallSensoredBldcModelTests(unittest.TestCase):
             ],
         )
         self.assertEqual(len(self.parser.part_instances), 4)
-        self.assertEqual(len(self.parser.parsed_requirements), 5)
+        self.assertEqual(len(self.parser.parsed_requirements), 8)
         transitions = self.parser.instance_state_machines[
             "system::drive"
         ].transitions
@@ -56,7 +56,7 @@ class HallSensoredBldcModelTests(unittest.TestCase):
             "system::plant::torqueConstantNewtonMetersPerAmpere": 0.010614,
             "system::plant::rotorInertiaKilogramMetersSquared": 0.000012,
             "system::plant::polePairs": 2.0,
-            "system::controller::configuredCurrentLimitAmperes": 6.0,
+            "system::drive::configuredCurrentLimitAmperes": 6.0,
             "system::sensor::dcBusVoltageVolts": 12.0,
         }
         for key, value in expected.items():
@@ -211,34 +211,43 @@ class HallSensoredBldcModelTests(unittest.TestCase):
                 rf"#ModelAssumption attribute {name} : Real;",
             )
 
-    def test_current_limit_replacement_is_controller_rate_and_not_drive_logic(self):
+    def test_current_safety_filter_is_fast_and_not_the_neural_controller(self):
         drive = self.source.split("part def HallCommutatedDrive", 1)[1].split(
             "part def SpeedController", 1
         )[0]
         controller = self.source.split("part def SpeedController", 1)[1].split(
             "part def HallSensoredBrushlessMotorSystem", 1
         )[0]
-        self.assertNotIn("currentLimitAmperes", drive)
-        self.assertIn("configuredCurrentLimitAmperes", controller)
-        self.assertIn("Current Limit Surrogate", self.source)
+        self.assertIn("configuredCurrentLimitAmperes", drive)
+        self.assertNotIn("configuredCurrentLimitAmperes", controller)
+        self.assertIn("currentSafeMinimumSignedDutyFraction", drive)
+        self.assertIn("currentSafeMaximumSignedDutyFraction", drive)
+        self.assertIn("exact observer", drive)
         self.assertIn("speedControlTickCount >= speedControlTicksPerUpdate - 1", controller)
 
         engine = SimulationEngine(self.parser)
         engine.initialize()
         engine.model = lambda _inputs: {"proposedSignedDutyFraction": 0.5}
-        engine.state["system::sensor::currentMeasurementErrorAmperes"] = 10.0
-        for _ in range(20):
+        peak_current = 0.0
+        for _ in range(4000):
             engine.step(0.00005)
-        self.assertEqual(
-            engine.state[
-                "system::controller::lastCurrentLimitedSignedDutyFraction"
-            ],
-            0.0,
-        )
-        self.assertEqual(
-            engine.state["system::drive::boundedProposedSignedDutyFraction"],
-            0.0,
-        )
+            peak_current = max(
+                peak_current,
+                abs(engine.state["system::plant::energizedPairCurrentAmperes"]),
+            )
+            self.assertAlmostEqual(
+                engine.state["system::plant::energizedPairCurrentAmperes"],
+                engine.state["system::drive::safetyObserverPairCurrentAmperes"],
+                places=10,
+            )
+            self.assertAlmostEqual(
+                engine.state["system::plant::rotorMechanicalSpeedRadiansPerSecond"],
+                engine.state[
+                    "system::drive::safetyObserverMechanicalSpeedRadiansPerSecond"
+                ],
+                places=10,
+            )
+        self.assertLessEqual(peak_current, 6.0 + 1e-10)
 
     def test_missing_data_impact_and_certificate_boundary_are_documented(self):
         audit = AUDIT.read_text()
@@ -251,22 +260,82 @@ class HallSensoredBldcModelTests(unittest.TestCase):
         ):
             self.assertIn(phrase, audit)
 
-    def test_current_surrogate_is_not_a_physical_six_ampere_invariant(self):
+    def test_adversarial_reversal_preserves_physical_current_bound(self):
         engine = SimulationEngine(self.parser)
         engine.initialize()
-        engine.model = lambda _inputs: {"proposedSignedDutyFraction": 1.0}
+        proposal = {"value": 1.0}
+        engine.model = lambda _inputs: {
+            "proposedSignedDutyFraction": proposal["value"]
+        }
         peak_current = 0.0
-        for _ in range(40):
+        for step in range(12000):
+            if step % 777 == 0:
+                proposal["value"] = 1.0 if proposal["value"] < 0.0 else -1.0
             engine.step(0.00005)
-            peak_current = max(
-                peak_current,
-                abs(engine.state["system::plant::energizedPairCurrentAmperes"]),
+            current = engine.state["system::plant::energizedPairCurrentAmperes"]
+            peak_current = max(peak_current, abs(current))
+            self.assertIs(
+                engine.state["system::drive::currentSafetyFeasible"], True
             )
-        self.assertGreater(peak_current, 6.0)
-        self.assertIn(
-            "cannot:\n\n- reproduce PI response",
-            AUDIT.read_text(),
+            self.assertLessEqual(abs(current), 6.0 + 1e-9)
+        self.assertGreater(peak_current, 5.9)
+
+    def test_scenario_target_uses_pinned_nominal_profile_not_nameplate_speed(self):
+        constraints = [
+            constraint for constraint in self.parser.parsed_constraints
+            if "ScenarioConstraint" in constraint.metadata
+        ]
+        self.assertEqual(len(constraints), 1)
+        self.assertIn("N_nom=4000 rpm", self.source)
+        self.assertIn("-418.879020478639", self.source)
+        self.assertIn("418.879020478639", self.source)
+        self.assertNotIn(
+            "controller.targetMechanicalSpeedRadiansPerSecond <=\n"
+            "                942.477796076938",
+            self.source,
         )
+
+    def test_declared_target_envelope_is_executable_with_simple_feedback(self):
+        # This is a feasibility regression, not the trained controller.  It
+        # prevents a repeat of publishing a task envelope that the encoded
+        # plant/filter combination cannot actually reach within an episode.
+        for target in (-418.879020478639, 100.0, 418.879020478639):
+            engine = SimulationEngine(self.parser)
+            engine.initialize()
+            engine.state[
+                "system::controller::targetMechanicalSpeedRadiansPerSecond"
+            ] = target
+
+            def proportional_policy(inputs):
+                requested = float(
+                    inputs["targetMechanicalSpeedRadiansPerSecond"]
+                )
+                observed = float(
+                    inputs["estimatedMechanicalSpeedRadiansPerSecond"]
+                )
+                feed_forward = 0.011744 * requested / 12.0
+                proposal = feed_forward + 0.004 * (requested - observed)
+                return {
+                    "proposedSignedDutyFraction": max(
+                        -1.0, min(1.0, proposal)
+                    )
+                }
+
+            engine.model = proportional_policy
+            reached = False
+            for _ in range(3000):
+                engine.step(0.00005)
+                estimated = engine.state[
+                    "system::sensor::estimatedMechanicalSpeedRadiansPerSecond"
+                ]
+                current = engine.state[
+                    "system::plant::energizedPairCurrentAmperes"
+                ]
+                self.assertLessEqual(abs(current), 6.0 + 1e-9)
+                if abs(target - estimated) <= 5.0:
+                    reached = True
+                    break
+            self.assertTrue(reached, f"target was not reached: {target}")
 
     def test_model_contains_nonsemantic_source_provenance(self):
         self.assertIn("SOURCE PROVENANCE -- comments only", self.source)

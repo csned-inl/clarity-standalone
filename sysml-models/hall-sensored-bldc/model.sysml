@@ -42,7 +42,8 @@ package HallSensoredBrushlessMotor {
      * IMPORTANT: URLs above do not support values marked #ModelAssumption.
      * The nominal averaged plant, zero load/loss profile, ideal current
      * reconstruction, 50 us Hall-capture quantization, direction-change reset,
-     * and memoryless current-limit surrogate are project assumptions.
+     * and exact-model predictive safety filter are project assumptions. The
+     * filter is CLARITY's safety layer; it is not presented as NXP's omitted PI.
      */
 
     // This is the RUN-phase abstraction of NXP's Hall-sensored six-step
@@ -113,6 +114,12 @@ package HallSensoredBrushlessMotor {
         attribute period4Seconds : Real;
         attribute period5Seconds : Real;
         attribute currentPeriodSeconds : Real;
+    }
+
+    item def CurrentSafetySnapshot {
+        attribute observerMechanicalSpeedRadiansPerSecond : Real;
+        attribute observerPairCurrentAmperes : Real;
+        attribute priorExecutedSignedDutyFraction : Real;
     }
 
     part def NominalAveragedTwoPhaseMotorPlant {
@@ -452,6 +459,24 @@ package HallSensoredBrushlessMotor {
         attribute disconnectedPhase : Integer;
         attribute signedPhasePairVoltageVolts : Real;
 
+        // Exact-model current-safety observer and one-step projection. These
+        // coefficients are the same named assumptions consumed by the plant;
+        // duplicating their values in the instance is checked fail-closed.
+        #ModelAssumption attribute effectivePairResistanceOhms : Real;
+        #ModelAssumption attribute effectivePairInductanceHenries : Real;
+        #ModelAssumption attribute effectivePairBackEmfConstantVoltSecondsPerRadian : Real;
+        #ModelAssumption attribute effectiveTorqueConstantNewtonMetersPerAmpere : Real;
+        #ModelAssumption attribute effectiveBenchInertiaKilogramMetersSquared : Real;
+        attribute currentSafetySamplePeriodSeconds : Real;
+        attribute configuredCurrentLimitAmperes : Real;
+        attribute maximumAuthorizedMechanicalSpeedRadiansPerSecond : Real;
+        attribute safetyObserverMechanicalSpeedRadiansPerSecond : Real;
+        attribute safetyObserverPairCurrentAmperes : Real;
+        attribute currentSafeMinimumSignedDutyFraction : Real;
+        attribute currentSafeMaximumSignedDutyFraction : Real;
+        attribute projectedNextPairCurrentAmperes : Real;
+        attribute currentSafetyFeasible : Boolean;
+
         port proposalPort : SignedDutyCommandPort;
         port hallPort : HallMotorSensorPort;
         port voltagePort : ~CommutatedVoltagePort;
@@ -507,24 +532,98 @@ package HallSensoredBrushlessMotor {
             assign sampledHallCode := reading.hallCode;
             assign dcBusVoltageVolts := reading.sampledDcBusVoltageVolts;
 
+            // Advance an exact observer through the same forward-Euler
+            // recurrence and the same previously executed duty as the plant.
+            // Equality with the physical plant follows by induction from the
+            // shared initial state and parameters; no delayed Hall-speed value
+            // is substituted for physical speed in the safety calculation.
+            item safetySnapshot : CurrentSafetySnapshot;
+            assign safetySnapshot.observerMechanicalSpeedRadiansPerSecond :=
+                safetyObserverMechanicalSpeedRadiansPerSecond;
+            assign safetySnapshot.observerPairCurrentAmperes :=
+                safetyObserverPairCurrentAmperes;
+            assign safetySnapshot.priorExecutedSignedDutyFraction :=
+                executedSignedDutyFraction;
+            assign safetyObserverMechanicalSpeedRadiansPerSecond :=
+                safetySnapshot.observerMechanicalSpeedRadiansPerSecond +
+                effectiveTorqueConstantNewtonMetersPerAmpere *
+                    safetySnapshot.observerPairCurrentAmperes /
+                    effectiveBenchInertiaKilogramMetersSquared *
+                    currentSafetySamplePeriodSeconds;
+            assign safetyObserverPairCurrentAmperes :=
+                safetySnapshot.observerPairCurrentAmperes +
+                (dcBusVoltageVolts *
+                    safetySnapshot.priorExecutedSignedDutyFraction -
+                 effectivePairResistanceOhms *
+                    safetySnapshot.observerPairCurrentAmperes -
+                 effectivePairBackEmfConstantVoltSecondsPerRadian *
+                    safetySnapshot.observerMechanicalSpeedRadiansPerSecond) /
+                    effectivePairInductanceHenries *
+                    currentSafetySamplePeriodSeconds;
+
+            // Solving the encoded electrical recurrence for duty gives the
+            // complete interval that keeps the following physical current in
+            // [-configuredCurrentLimitAmperes, configuredCurrentLimitAmperes].
+            assign currentSafeMinimumSignedDutyFraction :=
+                (((0.0 - configuredCurrentLimitAmperes -
+                    safetyObserverPairCurrentAmperes) *
+                    effectivePairInductanceHenries /
+                    currentSafetySamplePeriodSeconds) +
+                 effectivePairResistanceOhms *
+                    safetyObserverPairCurrentAmperes +
+                 effectivePairBackEmfConstantVoltSecondsPerRadian *
+                    safetyObserverMechanicalSpeedRadiansPerSecond) /
+                    dcBusVoltageVolts;
+            assign currentSafeMaximumSignedDutyFraction :=
+                (((configuredCurrentLimitAmperes -
+                    safetyObserverPairCurrentAmperes) *
+                    effectivePairInductanceHenries /
+                    currentSafetySamplePeriodSeconds) +
+                 effectivePairResistanceOhms *
+                    safetyObserverPairCurrentAmperes +
+                 effectivePairBackEmfConstantVoltSecondsPerRadian *
+                    safetyObserverMechanicalSpeedRadiansPerSecond) /
+                    dcBusVoltageVolts;
+            assign currentSafetyFeasible :=
+                currentSafeMinimumSignedDutyFraction <= maximumDutyMagnitude and
+                currentSafeMaximumSignedDutyFraction >=
+                    0.0 - maximumDutyMagnitude;
+
             // 000 and 111 are invalid Hall states. The NXP reference reports
             // faults and disables PWM; this abstraction gives that externally
             // visible behavior without inventing diagnostic timing.
-            if sampledHallCode < 1 or sampledHallCode > 6 {
+            if sampledHallCode < 1 or sampledHallCode > 6 or
+               not currentSafetyFeasible {
                 assign hallFault := true;
                 assign executedSignedDutyFraction := 0.0;
                 assign highSidePwmPhase := 0;
                 assign lowSideOnPhase := 0;
                 assign disconnectedPhase := 0;
             }
-            if sampledHallCode >= 1 and sampledHallCode <= 6 {
+            if sampledHallCode >= 1 and sampledHallCode <= 6 and
+               currentSafetyFeasible {
                 assign hallFault := false;
 
-                // Current limiting is a controller-rate operation in the NXP
-                // reference. The drive only realizes the received, saturated
-                // duty and the Hall commutation table.
-                assign executedSignedDutyFraction :=
-                    boundedProposedSignedDutyFraction;
+                // Project the bounded proposal onto the exact current-safe
+                // interval. The interval is recomputed at the 50 us current
+                // sampling rate while the neural proposal remains held.
+                if boundedProposedSignedDutyFraction <
+                        currentSafeMinimumSignedDutyFraction {
+                    assign executedSignedDutyFraction :=
+                        currentSafeMinimumSignedDutyFraction;
+                }
+                if boundedProposedSignedDutyFraction >
+                        currentSafeMaximumSignedDutyFraction {
+                    assign executedSignedDutyFraction :=
+                        currentSafeMaximumSignedDutyFraction;
+                }
+                if boundedProposedSignedDutyFraction >=
+                        currentSafeMinimumSignedDutyFraction and
+                   boundedProposedSignedDutyFraction <=
+                        currentSafeMaximumSignedDutyFraction {
+                    assign executedSignedDutyFraction :=
+                        boundedProposedSignedDutyFraction;
+                }
 
                 // NXP's double-buffered FTM update is represented atomically:
                 // the applicable phase tuple changes when the Hall code does.
@@ -592,6 +691,16 @@ package HallSensoredBrushlessMotor {
                 }
             }
 
+            assign projectedNextPairCurrentAmperes :=
+                safetyObserverPairCurrentAmperes +
+                (dcBusVoltageVolts * executedSignedDutyFraction -
+                 effectivePairResistanceOhms *
+                    safetyObserverPairCurrentAmperes -
+                 effectivePairBackEmfConstantVoltSecondsPerRadian *
+                    safetyObserverMechanicalSpeedRadiansPerSecond) /
+                    effectivePairInductanceHenries *
+                    currentSafetySamplePeriodSeconds;
+
             assign signedPhasePairVoltageVolts :=
                 executedSignedDutyFraction * dcBusVoltageVolts;
         }
@@ -609,15 +718,10 @@ package HallSensoredBrushlessMotor {
         attribute speedControlTickCount : Integer;
         attribute speedControlTicksPerUpdate : Integer;
         attribute lastProposedSignedDutyFraction : Real;
-        attribute lastCurrentLimitedSignedDutyFraction : Real;
+        attribute lastIssuedSignedDutyFraction : Real;
         attribute lastObservedMechanicalSpeedRadiansPerSecond : Real;
         attribute lastObservedPairCurrentAmperes : Real;
         attribute lastObservedHallCode : Integer;
-        attribute lastCurrentLimitEvaluationPairCurrentAmperes : Real;
-        // The public Hall article does not publish the configured current
-        // threshold or either PI controller's gains. The nominal profile uses
-        // a project scenario value, kept distinct from the 6 A motor rating.
-        #ModelAssumption attribute configuredCurrentLimitAmperes : Real;
 
         port sensorPort : HallMotorSensorPort;
         port proposalPort : ~SignedDutyCommandPort;
@@ -673,36 +777,11 @@ package HallSensoredBrushlessMotor {
 
                 assign lastProposedSignedDutyFraction :=
                     policyCall.proposedSignedDutyFraction;
-                assign lastCurrentLimitEvaluationPairCurrentAmperes :=
-                    reading.sampledPairCurrentAmperes;
-
-                // Conservative executable surrogate, not the NXP dual-PI
-                // algorithm: at the 1 ms controller boundary it rejects only
-                // duty that would command voltage in the measured-current
-                // direction. It neither proves a physical-current bound nor
-                // reproduces the omitted PI transient response.
-                if reading.sampledPairCurrentAmperes >=
-                        configuredCurrentLimitAmperes and
-                   policyCall.proposedSignedDutyFraction > 0.0 {
-                    assign lastCurrentLimitedSignedDutyFraction := 0.0;
-                }
-                if reading.sampledPairCurrentAmperes <=
-                        0.0 - configuredCurrentLimitAmperes and
-                   policyCall.proposedSignedDutyFraction < 0.0 {
-                    assign lastCurrentLimitedSignedDutyFraction := 0.0;
-                }
-                if (reading.sampledPairCurrentAmperes <
-                        configuredCurrentLimitAmperes or
-                    policyCall.proposedSignedDutyFraction <= 0.0) and
-                   (reading.sampledPairCurrentAmperes >
-                        0.0 - configuredCurrentLimitAmperes or
-                    policyCall.proposedSignedDutyFraction >= 0.0) {
-                    assign lastCurrentLimitedSignedDutyFraction :=
-                        policyCall.proposedSignedDutyFraction;
-                }
+                assign lastIssuedSignedDutyFraction :=
+                    policyCall.proposedSignedDutyFraction;
                 item command : SignedDutyCommand;
                 assign command.fraction :=
-                    lastCurrentLimitedSignedDutyFraction;
+                    lastIssuedSignedDutyFraction;
                 send command via proposalPort;
                 assign speedControlTickCount := 0;
             } else {
@@ -782,18 +861,49 @@ package HallSensoredBrushlessMotor {
         }
 
         #Prohibition
-        requirement def 'Current Limit Surrogate Opposes Further Increase' {
-            doc /* At each controller update, the project-defined surrogate rejects same-direction proposed duty at the configured measured-current boundary. */
+        requirement def 'Physical Pair Current Within Rated Limit' {
+            doc /* The exact-model predictive filter shall preserve the motor's rated continuous pair-current envelope. */
             subject s : HallSensoredBrushlessMotorSystem;
             require constraint {
-                (s.controller.lastCurrentLimitEvaluationPairCurrentAmperes >=
-                    s.controller.configuredCurrentLimitAmperes
-                    implies
-                    s.controller.lastCurrentLimitedSignedDutyFraction <= 0.0) and
-                (s.controller.lastCurrentLimitEvaluationPairCurrentAmperes <=
-                    0.0 - s.controller.configuredCurrentLimitAmperes
-                    implies
-                    s.controller.lastCurrentLimitedSignedDutyFraction >= 0.0)
+                s.plant.energizedPairCurrentAmperes >=
+                    0.0 - s.drive.configuredCurrentLimitAmperes and
+                s.plant.energizedPairCurrentAmperes <=
+                    s.drive.configuredCurrentLimitAmperes
+            }
+        }
+
+        #Prohibition
+        requirement def 'Projected Pair Current Within Rated Limit' {
+            doc /* Every feasible current-safety projection shall place the next encoded current inside the rated envelope. */
+            subject s : HallSensoredBrushlessMotorSystem;
+            require constraint {
+                s.drive.currentSafetyFeasible implies
+                    s.drive.projectedNextPairCurrentAmperes >=
+                        0.0 - s.drive.configuredCurrentLimitAmperes and
+                    s.drive.projectedNextPairCurrentAmperes <=
+                        s.drive.configuredCurrentLimitAmperes
+            }
+        }
+
+        #Prohibition
+        requirement def 'Current Safety Projection Remains Feasible' {
+            doc /* Execution shall stop before another plant step whenever no authorized duty can preserve the encoded current bound. */
+            subject s : HallSensoredBrushlessMotorSystem;
+            require constraint {
+                s.drive.currentSafetyFeasible
+            }
+        }
+
+        #Prohibition
+        requirement def 'Physical Speed Within Nameplate Envelope' {
+            doc /* RUN-phase execution shall stop at the motor's published bidirectional nameplate-speed envelope. */
+            subject s : HallSensoredBrushlessMotorSystem;
+            require constraint {
+                s.plant.rotorMechanicalSpeedRadiansPerSecond >=
+                    0.0 -
+                    s.drive.maximumAuthorizedMechanicalSpeedRadiansPerSecond and
+                s.plant.rotorMechanicalSpeedRadiansPerSecond <=
+                    s.drive.maximumAuthorizedMechanicalSpeedRadiansPerSecond
             }
         }
 
@@ -882,10 +992,33 @@ package HallSensoredBrushlessMotor {
             attribute :>> lowSideOnPhase = 2;
             attribute :>> disconnectedPhase = 1;
             attribute :>> signedPhasePairVoltageVolts = 0.0;
+            attribute :>> effectivePairResistanceOhms = 0.384;
+            attribute :>> effectivePairInductanceHenries = 0.000214;
+            attribute :>> effectivePairBackEmfConstantVoltSecondsPerRadian =
+                0.011744;
+            attribute :>> effectiveTorqueConstantNewtonMetersPerAmpere =
+                0.010614;
+            attribute :>> effectiveBenchInertiaKilogramMetersSquared =
+                0.000012;
+            attribute :>> currentSafetySamplePeriodSeconds = 0.00005;
+            attribute :>> configuredCurrentLimitAmperes = 6.0;
+            // Published 9000 rpm motor nameplate, used as an execution stop;
+            // this is distinct from the conservative 4000 rpm target range.
+            attribute :>> maximumAuthorizedMechanicalSpeedRadiansPerSecond =
+                942.477796076938;
+            attribute :>> safetyObserverMechanicalSpeedRadiansPerSecond = 0.0;
+            attribute :>> safetyObserverPairCurrentAmperes = 0.0;
+            attribute :>> currentSafeMinimumSignedDutyFraction = -1.0;
+            attribute :>> currentSafeMaximumSignedDutyFraction = 1.0;
+            attribute :>> projectedNextPairCurrentAmperes = 0.0;
+            attribute :>> currentSafetyFeasible = true;
         }
 
         part :>> controller {
             // The target is a scenario input, not an intrinsic motor value.
+            // The benchmark envelope is capped at the exact-part NXP
+            // parameter profile's N_nom=4000 rpm; the motor's 9000 rpm/24 V
+            // nameplate is not reused as a 12 V controller target.
             #ScenarioInput attribute :>>
                 targetMechanicalSpeedRadiansPerSecond = 314.159265358979;
             attribute :>> completionSpeedToleranceRadiansPerSecond = 5.0;
@@ -893,21 +1026,17 @@ package HallSensoredBrushlessMotor {
             // 20 * 50 microseconds = NXP's documented 1 ms speed period.
             attribute :>> speedControlTicksPerUpdate = 20;
             attribute :>> lastProposedSignedDutyFraction = 0.0;
-            attribute :>> lastCurrentLimitedSignedDutyFraction = 0.0;
+            attribute :>> lastIssuedSignedDutyFraction = 0.0;
             attribute :>> lastObservedMechanicalSpeedRadiansPerSecond = 0.0;
             attribute :>> lastObservedPairCurrentAmperes = 0.0;
             attribute :>> lastObservedHallCode = 6;
-            attribute :>> lastCurrentLimitEvaluationPairCurrentAmperes = 0.0;
-            // Project scenario value equal to the motor nameplate current;
-            // it is not claimed to be NXP's unpublished Hall-demo setting.
-            attribute :>> configuredCurrentLimitAmperes = 6.0;
         }
 
         #ScenarioConstraint constraint scenarioConstraints {
             controller.targetMechanicalSpeedRadiansPerSecond >=
-                -942.477796076938 and
+                -418.879020478639 and
             controller.targetMechanicalSpeedRadiansPerSecond <=
-                942.477796076938 and
+                418.879020478639 and
             plant.commutationSamplePeriodSeconds ==
                 commutationSamplePeriodSeconds and
             sensor.commutationSamplePeriodSeconds ==
