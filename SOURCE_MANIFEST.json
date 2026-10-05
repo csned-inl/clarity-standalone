@@ -2,15 +2,23 @@
   "models": {
     "cruise": {
       "file": "sysml-models/cruise-controller-model/model.sysml",
-      "sha256": "3fd949d55c97de73946be48f803f982eecbb2fee78e568843d77ef4964403254"
+      "sha256": "7c65d57ce02dceab9901f1e0357787b44877f482ca404302a9ad9979b919b50d"
+    },
+    "hall-sensored-bldc": {
+      "file": "sysml-models/hall-sensored-bldc/model.sysml",
+      "sha256": "1af98812f89494010688af2fc5a957b678250bffbe2c6e8d0ad58e425698ea4c"
     },
     "mixing": {
       "file": "sysml-models/mixing-sysml-model/model.sysml",
-      "sha256": "09d59723435da435325299934ed8472bbac3e89c6d9840df892b9f7e1c912f8f"
+      "sha256": "82eb230ff12a5caa134eb2b2b41f17c7f001df872c86af5c2096d4a91813f58e"
+    },
+    "rotary-inverted-pendulum": {
+      "file": "sysml-models/rotary-inverted-pendulum/model.sysml",
+      "sha256": "94a6216f77031803ddc24d698bbb59e606a8cd8dd00fdc6cd770e439f9aad290"
     },
     "thermostat": {
       "file": "sysml-models/thermostat/model.sysml",
-      "sha256": "44dec2333511c5cf7a40ad1828b612a043f9c7c71f6b960c276ce866f4a521aa"
+      "sha256": "8f2c411a6a305ca301c5818b736e8c1d47425a42134ca663fa5944ea2d4b4c45"
     }
   },
   "models_source": "automated-writing/fitter_artifact/src/clarity/models; mixing tolerance applied to working copy after local commit 6d17efb",
@@ -35,35 +43,30 @@
   "runtime_timing_repair": {
     "source": "current fitter_artifact runtime: initialization and cycle_end requirement ledger, final response before completion",
     "files": {
-      "sysml-models/simulator.py": "c1632f604d3442026fad80fc657e8cdafa4bfd375576ab04ed90afac353d8532",
-      "sysml-models/simulator_adapter.py": "69dbb89e874fe65e688ca6392e488351ba66589792085d27fb01a844afffce8e",
+      "sysml-models/simulator.py": "d5a25bd7f569b54ac1ecc0ebe0d12d48ce4ed5f9f63239e0e16f4eedd43363f7",
+      "sysml-models/simulator_adapter.py": "8b8026f402bdd77fae73932bd579e8f7301297b4b7e07e80f9c9fee9302ba901",
       "sysml-models/parser_values.py": "f7a803fe7ac35669910b7fb0828166122f5011e1a93ad1195c08acc51eccdcb3",
       "sysml-models/requirement_events.py": "5923d92897ca34e79ea9b77ca67ad639449fa3665e602aa8cdadf6c5a9191d77",
-      "rl/env.py": "420a573a4c9209ff1a7dc5d4ae72d8ce759c0f263067737967277fb63633cd85",
-      "rl/train.py": "c4864e9348f733d5b429028179c5e3b930ac4df366a5649b87cf79543c8d4f1e",
-      "analytic.py": "225febb1034c39bdb4068e2df02155f5f19b9cc44ec10292461dc5567f1d4fb7",
-      "selection.py": "4dec22e6dcba2f8a60c66585b7db3ad6615a55ad7857630ecb56604202614f92",
+      "rl/env.py": "8dfb8411e8b49101b9156974bd983ef1b8411112d3fb3a0d2e03398685d08783",
+      "rl/train.py": "f45331e5225a2afbe8852dedaa6727489841b3f50a23474c3af802ca25a03f4d",
+      "analytic.py": "fcf4b5ed31b43b3fb07555f2bbf2e4303f8331e92067e50957c9805a76ee2a77",
+      "selection.py": "f9e7214e509e4b2cf90d2f90f16a9f3c2f57f9176469a6eff2bac529b6c35e45",
       "tests/test_response_timing.py": "832c63b16510f613277640b8fc823b1d88bce9d017defa078cb6a0b69fb0d30d"
     }
   },
-  "model_dt_seconds": {
-    "thermostat": 1.0,
-    "cruise": 0.1,
-    "mixing": 0.1
-  },
-  "timestep_configuration": {
-    "pipeline.py": "3a8c3085ebfc8473c8990128cbe7e73b5eb52b958c8c9ab7ee7ef93700d75f58",
-    "gru.py": "4a824dea52097d0048e0b638b95ea03e0402ed2b3786a9f3e091ee5fa85b3e48",
-    "rl/train.py": "c4864e9348f733d5b429028179c5e3b930ac4df366a5649b87cf79543c8d4f1e"
+  "execution_parameter_contract": {
+    "description": "Typed SysML #ExecutionParameter values are the sole timing authority; all consumers derive or validate against them.",
+    "loader": "sysml-models/execution_parameters.py",
+    "regression": "tests/test_execution_parameters.py"
   },
   "spec_helper": {
     "description": "Parsed SysML AST compiled into Python predicates, no numerical network; no valid action raises an error",
     "files": {
       "rl/shield.py": "ec3af8bf587eb334d123f8564ff8e7f1d34f5b3b510fce1dd972b202611d047c",
       "rl/composite_model.py": "931956c503dd07c5c0e92129d9a27b075c5c554f691bf6a95799bd8ff20d1cf8",
-      "rl/env.py": "420a573a4c9209ff1a7dc5d4ae72d8ce759c0f263067737967277fb63633cd85",
-      "rl/train.py": "c4864e9348f733d5b429028179c5e3b930ac4df366a5649b87cf79543c8d4f1e",
-      "selection.py": "4dec22e6dcba2f8a60c66585b7db3ad6615a55ad7857630ecb56604202614f92",
+      "rl/env.py": "8dfb8411e8b49101b9156974bd983ef1b8411112d3fb3a0d2e03398685d08783",
+      "rl/train.py": "f45331e5225a2afbe8852dedaa6727489841b3f50a23474c3af802ca25a03f4d",
+      "selection.py": "f9e7214e509e4b2cf90d2f90f16a9f3c2f57f9176469a6eff2bac529b6c35e45",
       "tests/test_spec_helper.py": "dbb09897c4d211d1b4e5f65cbbe37b0f70bfe333bf9cf4afba9748c1d41a0edf"
     }
   },
@@ -71,9 +74,9 @@
     "description": "Per-update binary64 roundoff bounds; exact helper history resolves uncertain scan guards; model numeric types unchanged. SMV scan guard and snapshot use the preceding clock increment and preserve the scan period real division.",
     "files": {
       "sysml-models/scan_clock.py": "165c842a715b332d4b3a707814170fe0db134d16af5ba73b7a5b9ce0a232d94d",
-      "sysml-models/simulator.py": "c1632f604d3442026fad80fc657e8cdafa4bfd375576ab04ed90afac353d8532",
-      "sysml-models/mc-extract.py": "5463ba8864246404c9e673f0cdc6a63772dbc5bdaaf7d306c65ee4a58b5bba55",
-      "tests/test_scan_clock.py": "66cf5d42db40ada6580209cda380808f84d0dccc34222076cf5d4ca3177d0ebe"
+      "sysml-models/simulator.py": "d5a25bd7f569b54ac1ecc0ebe0d12d48ce4ed5f9f63239e0e16f4eedd43363f7",
+      "sysml-models/mc-extract.py": "752dcf0f3c450a38f52f63bad16d94ddebd15929e4755d655883b71315667931",
+      "tests/test_scan_clock.py": "a16fd97273492e11313dfd4847bc02445dcad12889b1c32629c40a29cbf19818"
     },
     "workstation_validation": {
       "worker": "kubuntu-workstation",

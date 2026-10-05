@@ -99,8 +99,6 @@ package RotaryInvertedPendulum {
         attribute pendulumAccelerationFromArmRate : Real;
         attribute pendulumAccelerationFromPendulumRate : Real;
         attribute pendulumAccelerationFromVoltage : Real;
-        attribute samplePeriodSeconds : Real;
-
         port motorVoltagePort : MotorVoltageCommandPort;
         port physicalStatePort : ~PendulumPhysicalStatePort;
 
@@ -122,19 +120,19 @@ package RotaryInvertedPendulum {
                 pendulumAccelerationFromVoltage * motorVoltagePort.command.volts;
 
             // Project-defined forward-Euler realization of the documented
-            // continuous model at the declared fixed sample period. All four
+            // continuous model at the source-derived integration step. All four
             // updates use the derivative snapshot above.
             #ContinuousRate assign armAngleRadians :=
-                armAngleRadians + derivative.armAngleRate * samplePeriodSeconds;
+                armAngleRadians + derivative.armAngleRate * dt;
             #ContinuousRate assign pendulumAngleFromUprightRadians :=
                 pendulumAngleFromUprightRadians +
-                derivative.pendulumAngleRate * samplePeriodSeconds;
+                derivative.pendulumAngleRate * dt;
             #ContinuousRate assign armAngularVelocityRadiansPerSecond :=
                 armAngularVelocityRadiansPerSecond +
-                derivative.armAngularAcceleration * samplePeriodSeconds;
+                derivative.armAngularAcceleration * dt;
             #ContinuousRate assign pendulumAngularVelocityRadiansPerSecond :=
                 pendulumAngularVelocityRadiansPerSecond +
-                derivative.pendulumAngularAcceleration * samplePeriodSeconds;
+                derivative.pendulumAngularAcceleration * dt;
         }
 
         bind physicalStatePort.state.armAngleRadians = armAngleRadians;
@@ -155,8 +153,6 @@ package RotaryInvertedPendulum {
         attribute estimatedArmAngularVelocityRadiansPerSecond : Real;
         attribute estimatedPendulumAngularVelocityRadiansPerSecond : Real;
         attribute velocityFilterCutoffRadiansPerSecond : Real;
-        attribute samplePeriodSeconds : Real;
-
         port plantPort : PendulumPhysicalStatePort;
         port upstreamPort : ~PendulumSensorPort;
 
@@ -169,13 +165,13 @@ package RotaryInvertedPendulum {
                 (estimatedArmAngularVelocityRadiansPerSecond +
                  velocityFilterCutoffRadiansPerSecond *
                  (plantPort.state.armAngleRadians - previousArmAngleRadians)) /
-                (1.0 + velocityFilterCutoffRadiansPerSecond * samplePeriodSeconds);
+                (1.0 + velocityFilterCutoffRadiansPerSecond * dt);
             assign estimatedPendulumAngularVelocityRadiansPerSecond :=
                 (estimatedPendulumAngularVelocityRadiansPerSecond +
                  velocityFilterCutoffRadiansPerSecond *
                  (plantPort.state.pendulumAngleFromUprightRadians -
                   previousPendulumAngleFromUprightRadians)) /
-                (1.0 + velocityFilterCutoffRadiansPerSecond * samplePeriodSeconds);
+                (1.0 + velocityFilterCutoffRadiansPerSecond * dt);
 
             assign sampledArmAngleRadians := plantPort.state.armAngleRadians;
             assign sampledPendulumAngleFromUprightRadians :=
@@ -351,6 +347,9 @@ package RotaryInvertedPendulum {
     }
 
     part def RotaryInvertedPendulumSystem {
+        #ExecutionParameter attribute controllerIntervalSeconds : Real = 0.001;
+        #ExecutionParameter attribute integrationSubstepsPerControllerInterval : Integer = 1;
+
         part plant : RotaryPendulumPlant;
         part encoder : EncoderAndVelocityEstimator;
         part amplifier : MotorAmplifier;
@@ -362,12 +361,10 @@ package RotaryInvertedPendulum {
         flow from amplifier.drivePort to plant.motorVoltagePort;
 
         attribute currentTimeSeconds : Real = 0.0;
-        attribute samplePeriodSeconds : Real = 0.001;
-
         action step {
             in dt : Real;
             #ContinuousRate assign currentTimeSeconds :=
-                currentTimeSeconds + samplePeriodSeconds;
+                currentTimeSeconds + dt;
         }
 
         #Prohibition
@@ -431,7 +428,6 @@ package RotaryInvertedPendulum {
             attribute :>> pendulumAccelerationFromArmRate = -4.11;
             attribute :>> pendulumAccelerationFromPendulumRate = -2.40;
             attribute :>> pendulumAccelerationFromVoltage = 13.7;
-            attribute :>> samplePeriodSeconds = 0.001;
         }
 
         part :>> encoder {
@@ -442,7 +438,6 @@ package RotaryInvertedPendulum {
             attribute :>> estimatedArmAngularVelocityRadiansPerSecond = 0.0;
             attribute :>> estimatedPendulumAngularVelocityRadiansPerSecond = 0.0;
             attribute :>> velocityFilterCutoffRadiansPerSecond = 50.0;
-            attribute :>> samplePeriodSeconds = 0.001;
         }
 
         part :>> amplifier {
@@ -470,9 +465,7 @@ package RotaryInvertedPendulum {
 
         #ScenarioConstraint constraint scenarioConstraints {
             controller.targetArmAngleRadians >= -1.570796326795 and
-            controller.targetArmAngleRadians <= 1.570796326795 and
-            plant.samplePeriodSeconds == samplePeriodSeconds and
-            encoder.samplePeriodSeconds == samplePeriodSeconds
+            controller.targetArmAngleRadians <= 1.570796326795
         }
     }
 }

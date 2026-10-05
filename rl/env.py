@@ -20,7 +20,7 @@ from requirement_events import ResetResult, ResetUnavailable, summarize_events
 class SysMLEnv:
     """RL environment derived from any SysML model with a #Neural action."""
 
-    def __init__(self, model_path: str, dt: float = 0.1,
+    def __init__(self, model_path: str, dt: float | None = None,
                  max_steps: int = 1200, phase: int = 1,
                  rng_seed: int = None, *,
                  observation_scales: dict[str, float] | None = None):

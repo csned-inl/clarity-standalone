@@ -14,14 +14,18 @@ import json
 from pathlib import Path
 import random
 import shutil
+import sys
 
 import numpy as np
 import torch
 import torch.nn as nn
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "sysml-models"))
+
 from continuous_env import ContinuousSysMLEnv
 from continuous_model import ContinuousRecurrentActorCritic, select_torch_device
 from continuous_spec import ExactContinuousShield
+from execution_parameters import load_execution_parameters
 
 
 class ContinuousShieldedPolicy(nn.Module):
@@ -183,13 +187,16 @@ def train_exact_feedback_clone(model: Path, out_dir: Path, *,
                                oracle_samples: int = 2000,
                                oracle_epochs: int = 100,
                                eval_episodes: int = 100,
-                               dt: float = 0.001,
+                               dt: float | None = None,
                                device_name: str = "auto") -> dict:
     """Train and gate the first continuous GRU artifact.
 
     The published artifact is explicitly a shield-dependent warm start.  It is
     never labeled as an autonomous safe policy.
     """
+    execution = load_execution_parameters(model)
+    dt = (execution.integration_step_float if dt is None else
+          execution.require_matching_integration_step(dt))
     out_dir.mkdir(parents=True, exist_ok=False)
     random.seed(seed)
     np.random.seed(seed)
@@ -225,7 +232,8 @@ def train_exact_feedback_clone(model: Path, out_dir: Path, *,
                         "Gaussian scalar-action head, value head",
         "device": str(device),
         "seed": seed,
-        "dt_seconds": dt,
+        "execution_parameters": execution.as_dict(),
+        "integration_step_seconds": dt,
         "oracle_samples": oracle_samples,
         "oracle_epochs": oracle_epochs,
         "observation_dimension": len(shield.interface.input_names),
@@ -254,6 +262,7 @@ def train_exact_feedback_clone(model: Path, out_dir: Path, *,
         "policy": final_model.name,
         "source_model": str(model.resolve()),
         "source_model_sha256": model_sha256,
+        "execution_parameters": execution.as_dict(),
         "shield_contract": shield.report(),
         "requires_runtime_shield": True,
         "learned_policy_autonomous": False,

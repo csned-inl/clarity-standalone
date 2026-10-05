@@ -190,6 +190,9 @@ package CruiseControl {
     }
 
     part def CruiseControlSystem {
+        #ExecutionParameter attribute controllerIntervalSeconds : Real = 0.1;
+        #ExecutionParameter attribute integrationSubstepsPerControllerInterval : Integer = 1;
+
         part vehicle : Vehicle;
         part speedSensor : SpeedSensor;
         part engine : Actuator;

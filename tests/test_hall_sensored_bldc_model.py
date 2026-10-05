@@ -16,6 +16,7 @@ sys.path.insert(0, str(VALIDATION_RUNTIME))
 
 from simulator import ExpressionEvaluator, SimulationEngine  # noqa: E402
 from sysml_parser import SysMLParser  # noqa: E402
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 MODEL = ROOT / "sysml-models/hall-sensored-bldc/model.sysml"
@@ -242,7 +243,10 @@ class HallSensoredBldcModelTests(unittest.TestCase):
         self.assertIn("currentSafeMinimumSignedDutyFraction", drive)
         self.assertIn("currentSafeMaximumSignedDutyFraction", drive)
         self.assertIn("exact observer", drive)
-        self.assertIn("speedControlTickCount >= speedControlTicksPerUpdate - 1", controller)
+        self.assertIn(
+            "speedControlTickCount >= integrationSubstepsPerControllerInterval - 1",
+            controller,
+        )
 
         engine = SimulationEngine(self.parser)
         engine.initialize()
@@ -398,14 +402,12 @@ class HallSensoredBldcModelTests(unittest.TestCase):
                 self.assertRegex(self.source, pattern)
 
     def test_two_documented_rates_are_exactly_related(self):
-        commutation_period = self.engine.state[
-            "system::plant::commutationSamplePeriodSeconds"
-        ]
-        ticks = self.engine.state[
-            "system::controller::speedControlTicksPerUpdate"
-        ]
+        execution = load_execution_parameters(MODEL)
+        commutation_period = execution.integration_step_float
+        ticks = execution.integration_substeps
         self.assertEqual(commutation_period, 0.00005)
-        self.assertEqual(ticks, 20.0)
+        self.assertEqual(ticks, 20)
+        self.assertEqual(float(execution.controller_interval_seconds), 0.001)
         self.assertAlmostEqual(commutation_period * ticks, 0.001, places=15)
 
         nameplate_speed = 9000.0 * 2.0 * 3.141592653589793 / 60.0

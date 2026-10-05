@@ -13,6 +13,8 @@ from typing import Any, Optional
 import warnings
 from contextvars import ContextVar
 
+from execution_parameters import load_execution_parameters
+
 warnings.filterwarnings("ignore")
 
 try:
@@ -952,8 +954,9 @@ def build_argument_parser(parser: SysMLParser) -> argparse.ArgumentParser:
                           help="Path to SysML model file (default: model.sysml)")
     argparser.add_argument("-c", "--config", type=Path,
                           help="Path to YAML configuration file")
-    argparser.add_argument("-t", "--timestep", type=float, default=0.1,
-                          help="Simulation timestep in seconds (default: 0.1)")
+    argparser.add_argument(
+        "-t", "--timestep", type=float, default=None,
+        help="compatibility assertion; must equal the source-derived integration step")
     argparser.add_argument("-d", "--duration", type=float, default=20.0,
                           help="Simulation duration in seconds (default: 20.0)")
     argparser.add_argument("-o", "--output-interval", type=float, default=1.0,
@@ -1075,7 +1078,12 @@ def main() -> int:
                 engine.current_sm_state[fqn] = args.initial_state
         engine.solver.solve(engine.current_sm_state)
 
-    timestep = config.get('timestep', args.timestep)
+    execution = load_execution_parameters(model_path)
+    supplied_timestep = config.get('timestep', args.timestep)
+    timestep = (execution.integration_step_float
+                if supplied_timestep is None else
+                execution.require_matching_integration_step(
+                    float(supplied_timestep)))
     duration = config.get('duration', args.duration)
     output_interval = config.get('output_interval', args.output_interval)
 

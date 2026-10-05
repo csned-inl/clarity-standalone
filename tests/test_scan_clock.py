@@ -144,10 +144,10 @@ class ScanClockTests(unittest.TestCase):
         source = translator.generate()
         scan = next(line for line in source.splitlines() if 'scan_fires :=' in line)
         self.assertIn('controller_currentTimeSeconds + dt', scan)
-        self.assertIn('(1.0 / controller_scanCycleFrequencyHz)', scan)
+        self.assertIn('controller_controllerIntervalSeconds', scan)
         block = source.split('next(controller_lastScanTimeSeconds) :=', 1)[1].split('esac;', 1)[0]
         self.assertIn(': ((controller_currentTimeSeconds + dt))', block)
-        self.assertIn('(1.0 / controller_scanCycleFrequencyHz)', block)
+        self.assertIn('controller_controllerIntervalSeconds', block)
         self.assertNotIn('epsilon', source)
 
 

@@ -87,9 +87,10 @@ Apple-silicon Mac with an MPS-enabled PyTorch installation uses its GPU without
 a Mac-specific model implementation.
 
 The default training configuration uses 2,000 reachable oracle samples, 100
-cloning epochs, 100 shielded evaluation episodes, a 1 ms process step, and a
-6,000-step episode cap. These values are CLI parameters and should be reduced
-for a runner smoke test before a full job.
+cloning epochs, 100 shielded evaluation episodes, and a 6,000-step episode
+cap. Timing is not a CLI-owned setting: the default model derives a 1 ms
+process step from its typed SysML execution parameters. The count parameters
+may be reduced for a runner smoke test before a full job.
 
 The resulting `final/shielded_policy.pt` is never a standalone safety artifact.
 Its `training_report.json` states both `requires_runtime_shield: true` and

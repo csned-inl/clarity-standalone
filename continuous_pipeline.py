@@ -22,11 +22,11 @@ sys.path.insert(0, str(ROOT / "sysml-models"))
 sys.path.insert(0, str(ROOT / "rl"))
 
 from continuous_spec import ExactContinuousShield  # noqa: E402
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 MODEL = ROOT / "sysml-models" / "rotary-inverted-pendulum" / "model.sysml"
 EXTRACTOR = ROOT / "sysml-models" / "mc-extract.py"
-DT_SECONDS = 0.001
 
 
 def _sha256(path: Path) -> str:
@@ -37,6 +37,8 @@ def prepare(model: Path, out_dir: Path, *, timeout: int,
             nuxmv: Path | None = None) -> dict:
     """Extract the typed interface and SMV model; optionally run nuXmv."""
     model = model.resolve()
+    execution = load_execution_parameters(model)
+    dt = execution.integration_step_float
     out_dir.mkdir(parents=True, exist_ok=False)
     shield = ExactContinuousShield(str(model))
     interface = shield.report()
@@ -49,8 +51,7 @@ def prepare(model: Path, out_dir: Path, *, timeout: int,
     formal_dir.mkdir()
     smv = formal_dir / "model.smv"
     extraction = subprocess.run(
-        [sys.executable, str(EXTRACTOR), str(model), "--dt",
-         str(DT_SECONDS), "-o", str(smv)],
+        [sys.executable, str(EXTRACTOR), str(model), "-o", str(smv)],
         cwd=ROOT, text=True, capture_output=True, timeout=timeout)
     (formal_dir / "extract.log").write_text(
         extraction.stdout + extraction.stderr)
@@ -84,7 +85,7 @@ def prepare(model: Path, out_dir: Path, *, timeout: int,
         from formal import verify
         from pendulum_envelope_certificate import certify as certify_envelope
         formal = verify(
-            model, formal_dir, dt=DT_SECONDS, nuxmv=nuxmv,
+            model, formal_dir, dt=dt, nuxmv=nuxmv,
             timeout_seconds=timeout,
             obligation_certifiers={
                 "Stay Within Balance Controller Envelope": certify_envelope,
@@ -94,7 +95,8 @@ def prepare(model: Path, out_dir: Path, *, timeout: int,
     report = {
         "model": str(model),
         "model_sha256": interface["model_sha256"],
-        "dt_seconds": DT_SECONDS,
+        "execution_parameters": execution.as_dict(),
+        "integration_step_seconds": dt,
         "interface": interface,
         "formal": formal,
         "training_ready": bool(formal["verified"]),
@@ -138,7 +140,7 @@ def main() -> int:
             args.model.resolve(), run_dir / "gru", seed=args.seed,
             max_steps=args.max_steps, oracle_samples=args.oracle_samples,
             oracle_epochs=args.oracle_epochs,
-            eval_episodes=args.eval_episodes, dt=DT_SECONDS,
+            eval_episodes=args.eval_episodes,
             device_name=args.device)
         report["training"] = training
         (run_dir / "summary.json").write_text(

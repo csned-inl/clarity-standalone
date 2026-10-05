@@ -17,6 +17,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "rl"))
+sys.path.insert(0, str(ROOT / "sysml-models"))
 
 from continuous_env import ContinuousSysMLEnv  # noqa: E402
 from continuous_model import (  # noqa: E402
@@ -30,10 +31,10 @@ from hall_motor_verification import (  # noqa: E402
     certify_structure,
     compile_contract,
 )
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
-DT_SECONDS = 0.00005
 SHIELDED_MODES = tuple(mode for mode in TRAINING_MODES if mode.use_shield)
 
 
@@ -61,6 +62,8 @@ def main() -> int:
         parser.error("episodes-per-update cannot exceed episodes")
 
     model_path = args.model.resolve()
+    execution = load_execution_parameters(model_path)
+    dt = execution.integration_step_float
     # Training is downstream of the cheap structural gate.  Refuse to spend
     # compute on a model whose recognized safety transition is inconsistent.
     contract = compile_contract(model_path)
@@ -78,7 +81,7 @@ def main() -> int:
             contract.maximum_target_radians_per_second,
     }
     probe = ContinuousSysMLEnv(
-        str(model_path), dt=DT_SECONDS, max_steps=args.max_steps,
+        str(model_path), dt=dt, max_steps=args.max_steps,
         phase=1, rng_seed=args.seed,
         observation_scales=observation_scales)
     try:
@@ -117,7 +120,7 @@ def main() -> int:
             action_error_scale=args.action_error_scale,
             time_budget=args.time_budget,
             override_budget=args.override_budget,
-            dt=DT_SECONDS,
+            dt=dt,
             observation_scales=observation_scales,
             executed_action_state_key=(
                 "system::drive::executedSignedDutyFraction"
@@ -133,7 +136,8 @@ def main() -> int:
         "episodes_per_mode": args.episodes,
         "evaluation_episodes_per_mode": args.evaluation_episodes,
         "max_steps": args.max_steps,
-        "dt_seconds": DT_SECONDS,
+        "execution_parameters": execution.as_dict(),
+        "integration_step_seconds": dt,
         "proposal_penalty_cap": args.penalty_cap,
         "time_penalty_budget": args.time_budget,
         "override_penalty_budget": args.override_budget,

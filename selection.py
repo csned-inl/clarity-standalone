@@ -16,7 +16,7 @@ class NoSafeCheckpoint(RuntimeError):
 
 
 def evaluate_gru(model_path: str, composite, *, device, seed: int,
-                 episodes: int, max_steps: int, dt: float = 0.1) -> dict:
+                 episodes: int, max_steps: int, dt: float | None = None) -> dict:
     if episodes <= 0:
         raise ValueError("evaluation episodes must be positive")
     env = SysMLEnv(model_path, dt=dt, max_steps=max_steps, phase=2,
@@ -91,7 +91,7 @@ def evaluate_gru(model_path: str, composite, *, device, seed: int,
 
 def select(model_path: str, composite, checkpoint_dir: Path,
            out_dir: Path, *, device, seed: int, eval_episodes: int,
-           test_episodes: int, max_steps: int, dt: float = 0.1) -> dict:
+           test_episodes: int, max_steps: int, dt: float | None = None) -> dict:
     """Rank safe periodic checkpoints by task errors, then shield overrides."""
     out_dir.mkdir(parents=True, exist_ok=True)
     checkpoint_paths = sorted(checkpoint_dir.glob("ep_*.pt"))

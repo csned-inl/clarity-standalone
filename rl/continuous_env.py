@@ -16,7 +16,7 @@ class ContinuousSysMLEnv(SysMLEnv):
     output dictionary consumed by ``SimulatorTwin``.  No action grid is built.
     """
 
-    def __init__(self, model_path: str, dt: float = 0.1,
+    def __init__(self, model_path: str, dt: float | None = None,
                  max_steps: int = 1200, phase: int = 1,
                  rng_seed: int | None = None, *,
                  terminate_on_violation: bool = True,

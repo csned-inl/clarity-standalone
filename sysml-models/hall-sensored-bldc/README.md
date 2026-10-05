@@ -42,12 +42,12 @@ balance phase. The model includes:
 - the exact Sunrise Hall sequence `110, 100, 101, 001, 011, 010`;
 - NXP's exact clockwise and counterclockwise phase switching table;
 - a continuous signed PWM-duty proposal and a separately executed duty;
-- a 50 microsecond executable plant/current-sampling step, an explicitly
-  bounded-at-50-microseconds Hall-capture approximation, and a 1 millisecond
-  controller update (20 executable ticks);
+- a source-owned 1 millisecond controller interval divided into 20 integration
+  substeps by default (50 microseconds), with Hall capture bounded by one
+  integration step;
 - 12 V bench supply context, kept distinct from the motor's 24 V nameplate;
 - invalid-Hall shutdown, proposal saturation, and a project-defined predictive
-  current-safety projection at the 50 microsecond plant rate;
+  current-safety projection at the source-derived plant rate;
 - a non-unique neural policy contract over the continuous action; and
 - a task target envelope capped at the exact motor profile's published
   `N_nom=4000 rpm`, plus a project-defined completion tolerance.
@@ -106,9 +106,10 @@ in either case.
 The S32M244 reference uses asynchronous GPIO interrupts for Hall changes, an
 ADC/current path at the fast rate, and a 1 millisecond speed/current-control
 interrupt. The executable runtime currently has one clock, so the model polls
-the Hall sector at 50 microseconds and records that as an explicit maximum
-capture-delay assumption. The model uses forward Euler for the continuous
-averaged plant at the same 50 microseconds. At the
+the Hall sector once per source-derived integration step and records that as
+an explicit maximum capture-delay assumption. The default execution parameters
+produce a 50 microsecond step. The model uses forward Euler for the continuous
+averaged plant at that same step. At the
 9000 rpm nameplate speed with two pole pairs, one step moves about 0.0943
 electrical radians, well below the `pi/3` sector width, so at most one Hall
 boundary can be crossed per step inside the declared envelope.

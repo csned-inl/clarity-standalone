@@ -55,7 +55,7 @@ equilibrium. It includes:
 - a continuous proposed motor-voltage action;
 - a message-triggered amplifier execution relation with +/-10 V saturation and
   held voltage between samples;
-- a fixed 1 ms sample period;
+- a source-owned 1 ms default controller and integration interval;
 - a 90-degree-or-smaller arm reference scenario;
 - voltage, balance-envelope, and controller-response requirements; and
 - explicit project-defined task-completion tolerances.
@@ -87,9 +87,12 @@ model makes two additional, explicit project choices:
 - forward Euler for the plant; and
 - backward Euler for the `50 s/(s+50)` velocity estimator.
 
-Both use `samplePeriodSeconds = 0.001`. These are not presented as equations
-copied from Quanser. They are the declared implementation contract whose
-discretization safety must be certified separately.
+Both use the integration step derived from the SysML
+`controllerIntervalSeconds` and
+`integrationSubstepsPerControllerInterval` execution parameters (1 ms by
+default). These are not presented as equations copied from Quanser. They are
+the declared implementation contract whose discretization safety must be
+certified separately.
 
 Within one sample, the held executed voltage advances the plant, the encoder
 samples the new physical state, the controller emits a command, and the

@@ -181,6 +181,9 @@ package Thermostat {
     }
 
     part def HeatingCoolingSystem {
+        #ExecutionParameter attribute controllerIntervalSeconds : Real = 1.0;
+        #ExecutionParameter attribute integrationSubstepsPerControllerInterval : Integer = 1;
+
         part environment : Environment;
         part thermometer : TemperatureSensor;
         part ac : HeatingCoolingSource;

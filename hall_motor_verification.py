@@ -2,8 +2,9 @@
 """Fail-closed verification of the Hall-motor safety transition slice.
 
 The certificate covers the encoded plant recurrence, its exact-model observer,
-the 50 us current-safe duty projection, the controller contract, and the Hall
-commutation relation. It does not encode the simulator control graph.
+the source-derived current-safe duty projection interval, the controller
+contract, and the Hall commutation relation. It does not encode the simulator
+control graph.
 """
 
 from __future__ import annotations
@@ -15,14 +16,18 @@ import hashlib
 import json
 from pathlib import Path
 import re
+import sys
 
 from formal import verify_smv
+
+sys.path.insert(0, str(Path(__file__).resolve().parent / "sysml-models"))
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 ROOT = Path(__file__).resolve().parent
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
 EXPECTED_SAFETY_SLICE_SHA256 = (
-    "ac5dc6237375ab74b8cd88ab3491ee86b4a1b56f5cfabf76ae1e7aa9198a64a7"
+    "f03f5cb1c5ddee552de65a97776fcce9775ec55cc9b73cf229627c162f3cead8"
 )
 
 POSITIVE_TABLE = {
@@ -74,6 +79,18 @@ def _require(source: str, pattern: str, label: str) -> None:
         raise ValueError(f"unrecognized or missing {label}")
 
 
+def _normalize_execution_parameter_values(source: str) -> str:
+    """Keep the reviewed safety shape pinned without pinning tunable values."""
+    return re.sub(
+        r"(#ExecutionParameter\s+attribute\s+"
+        r"(?:controllerIntervalSeconds|integrationSubstepsPerControllerInterval)"
+        r"\s*:\s*(?:Real|Integer)\s*=\s*)"
+        r"[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?(?=\s*;)",
+        r"\1<SOURCE_EXECUTION_VALUE>",
+        source,
+    )
+
+
 @dataclass(frozen=True)
 class MotorSafetyContract:
     model: str
@@ -90,6 +107,8 @@ class MotorSafetyContract:
     back_emf_volt_seconds_per_radian: float
     torque_constant_newton_meters_per_ampere: float
     inertia_kilogram_meters_squared: float
+    controller_interval_seconds: float
+    integration_substeps_per_controller_interval: int
     sample_period_seconds: float
     valid_hall_codes: tuple[int, ...]
     positive_phase_table: dict[int, tuple[int, int, int]]
@@ -100,6 +119,7 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
     """Extract the recognized recurrence and reject any unreviewed drift."""
     model = model.resolve()
     source = model.read_text()
+    execution = load_execution_parameters(model)
     plant = _body(source, "part def NominalAveragedTwoPhaseMotorPlant",
                   "part def HallSensorAndSpeedEstimator")
     drive = _body(source, "part def HallCommutatedDrive",
@@ -108,7 +128,8 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
                        "part def HallSensoredBrushlessMotorSystem")
     system = _body(source, "part def HallSensoredBrushlessMotorSystem",
                    "part system")
-    safety_slice = "\n--SLICE--\n".join((plant, drive, controller, system))
+    safety_slice = _normalize_execution_parameter_values(
+        "\n--SLICE--\n".join((plant, drive, controller, system)))
     digest = hashlib.sha256(safety_slice.encode()).hexdigest()
     if digest != EXPECTED_SAFETY_SLICE_SHA256:
         raise ValueError(
@@ -130,13 +151,7 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
         source, "effectiveTorqueConstantNewtonMetersPerAmpere")
     inertia = _shared_number(
         source, "effectiveBenchInertiaKilogramMetersSquared")
-    sample_periods = (
-        _numbers(source, "commutationSamplePeriodSeconds")
-        + _numbers(source, "currentSafetySamplePeriodSeconds")
-    )
-    if not sample_periods or len(set(sample_periods)) != 1:
-        raise ValueError(f"plant/sensor/filter sample periods disagree: {sample_periods}")
-    sample_period = sample_periods[0]
+    sample_period = execution.integration_step_float
     tolerance = _one_number(source, "completionSpeedToleranceRadiansPerSecond")
 
     upper_target = re.findall(
@@ -163,14 +178,14 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
             "effectiveTorqueConstantNewtonMetersPerAmpere *",
             "energizedPairCurrentAmperes -",
             "effectivePairBackEmfConstantVoltSecondsPerRadian *",
-            "commutationSamplePeriodSeconds",
+            "dt",
         )),
         (drive, (
             "safetyObserverMechanicalSpeedRadiansPerSecond :=",
             "safetySnapshot.observerMechanicalSpeedRadiansPerSecond +",
             "safetyObserverPairCurrentAmperes :=",
             "safetySnapshot.priorExecutedSignedDutyFraction",
-            "currentSafetySamplePeriodSeconds",
+            "dt",
         )),
     ):
         for label in labels:
@@ -253,6 +268,9 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
         back_emf_volt_seconds_per_radian=back_emf,
         torque_constant_newton_meters_per_ampere=torque,
         inertia_kilogram_meters_squared=inertia,
+        controller_interval_seconds=float(
+            execution.controller_interval_seconds),
+        integration_substeps_per_controller_interval=execution.integration_substeps,
         sample_period_seconds=sample_period,
         valid_hall_codes=tuple(range(1, 7)),
         positive_phase_table=dict(POSITIVE_TABLE),

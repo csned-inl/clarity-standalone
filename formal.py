@@ -14,6 +14,9 @@ from typing import Callable
 
 ROOT = Path(__file__).resolve().parent
 EXTRACTOR = ROOT / "sysml-models" / "mc-extract.py"
+sys.path.insert(0, str(ROOT / "sysml-models"))
+
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 def _sha256(path: Path) -> str:
@@ -206,12 +209,15 @@ def verify_smv(smv: Path, out_dir: Path, *, nuxmv: Path,
         result for result in results if result["kind"] == "requirement"]
     verified = bool(results) and all(
         result["status"] == "proved" for result in results)
+    execution = None if model is None else load_execution_parameters(model)
     report = {
         "model": None if model is None else str(model.resolve()),
         "model_sha256": (
             None if model is None else _sha256(model.resolve())),
         "smv": str(smv),
         "smv_sha256": _sha256(smv),
+        "execution_parameters": (
+            None if execution is None else execution.as_dict()),
         "method": "isolated-check_invar_ic3-on-precompiled-slice",
         "timeout_seconds_per_obligation": timeout_seconds,
         "emitted_invarspec_count": len(obligations),
@@ -224,7 +230,7 @@ def verify_smv(smv: Path, out_dir: Path, *, nuxmv: Path,
     return report
 
 
-def verify(model: Path, out_dir: Path, *, dt: float, nuxmv: Path,
+def verify(model: Path, out_dir: Path, *, dt: float | None = None, nuxmv: Path,
            timeout_seconds: int = 300,
            obligation_certifiers: dict[
                str, Callable[[Path], dict]] | None = None) -> dict:
@@ -236,6 +242,9 @@ def verify(model: Path, out_dir: Path, *, dt: float, nuxmv: Path,
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     model = model.resolve()
+    execution = load_execution_parameters(model)
+    dt = (execution.integration_step_float if dt is None else
+          execution.require_matching_integration_step(dt))
     smv = out_dir / "model.smv"
     extract = subprocess.run(
         [sys.executable, str(EXTRACTOR), str(model), "--dt", str(dt),
@@ -276,6 +285,8 @@ def verify(model: Path, out_dir: Path, *, dt: float, nuxmv: Path,
         "model_sha256": _sha256(model),
         "smv": str(smv.resolve()),
         "smv_sha256": _sha256(smv),
+        "dt_seconds": dt,
+        "execution_parameters": execution.as_dict(),
         "method": ("hybrid-isolated-ic3-and-direct-certificate"
                    if obligation_certifiers else "isolated-check_invar_ic3"),
         "timeout_seconds_per_obligation": timeout_seconds,

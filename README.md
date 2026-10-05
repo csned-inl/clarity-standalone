@@ -45,10 +45,17 @@ failed run cannot leave an old final policy in place. The default GRU run
 uses 2,000 oracle samples, 100 cloning epochs, 2,000 PPO episodes, 100
 checkpoint evaluation episodes, and 100 held-out evaluation episodes.
 
-Thermostat advances by 1 second per simulator cycle. Cruise and mixing advance
-by 0.1 seconds. The pipeline passes each model's timestep through formal
-extraction, oracle generation, training, checkpoint evaluation, selection,
-and held-out evaluation.
+Each model owns its execution timing through typed `#ExecutionParameter`
+attributes. `controllerIntervalSeconds` declares the policy decision interval;
+`integrationSubstepsPerControllerInterval` derives the plant integration step.
+The pipeline loads those values once and propagates their immutable fingerprint
+through formal extraction, simulation, training, checkpoint evaluation,
+selection, and reports. A legacy `--dt` argument is only a consistency
+assertion and fails if it conflicts with the SysML source.
+
+The same loader retains every typed `#ExecutionParameter`, so solver budgets,
+diagnostic switches, or other pipeline-wide settings can use the same
+source-owned mechanism without adding another independent runner constant.
 
 Mixing scan timing uses `sysml-models/scan_clock.py`. It bounds binary64 error
 after each actual clock increment and subtraction, adapting to the timestep

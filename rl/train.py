@@ -20,12 +20,14 @@ import numpy as np
 
 sys.stdout.reconfigure(line_buffering=True)
 sys.path.insert(0, os.path.join(os.path.dirname(__file__)))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "sysml-models"))
 
 from model import RecurrentActorCritic
 from env import SysMLEnv
 from ppo import RecurrentPPO, EpisodeBuffer
 from oracle import extract_interface, spec_oracle
 from composite_model import (build_composite_model)
+from execution_parameters import load_execution_parameters
 
 
 # =====================================================================
@@ -285,7 +287,7 @@ def print_eval(results, label):
             print(f"           violations: {', '.join(sorted(all_v))}")
 
 
-def detailed_eval(model_path, composite, device, dt=0.1, max_steps=1200,
+def detailed_eval(model_path, composite, device, dt=None, max_steps=1200,
                   n_episodes=100):
     from oracle import extract_interface
     eval_env = SysMLEnv(model_path, dt=dt, max_steps=max_steps, phase=2)
@@ -583,12 +585,14 @@ def run_training_mode(mode_name, build_fn, model_path, iface,
                       balance_oracle_classes: bool = False,
                       bc_aux_coeff: float = 0.0,
                       ensure_class_coverage: int = 0,
-                      max_steps: int = 1200, dt: float = 0.1):
+                      max_steps: int = 1200, dt: float | None = None):
     """Run full oracle + PPO training for one shield mode.
 
     Returns (composite, detailed_results, passed).
     """
-    DT = dt
+    execution = load_execution_parameters(model_path)
+    DT = (execution.integration_step_float if dt is None else
+          execution.require_matching_integration_step(dt))
     MAX_STEPS = max_steps
     SEED = seed
     HIDDEN_DIM = 64
@@ -737,14 +741,17 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    execution = load_execution_parameters(MODEL_PATH)
+    dt = execution.integration_step_float
+
     # Probe env for dimensions
-    probe_env = SysMLEnv(MODEL_PATH, dt=0.1, max_steps=1200, phase=1, rng_seed=SEED)
+    probe_env = SysMLEnv(MODEL_PATH, dt=dt, max_steps=1200, phase=1, rng_seed=SEED)
     obs_dim = probe_env.obs_dim
     n_actions = probe_env.n_actions
     probe_env.close()
 
     print("Extracting SysML interface for oracle...")
-    iface = extract_interface(MODEL_PATH, dt=0.1)
+    iface = extract_interface(MODEL_PATH, dt=dt)
 
     print()
     print("=" * 70)
@@ -768,7 +775,7 @@ def main():
 
     composite, detail, passed = run_training_mode(
         "full", build_composite_model, MODEL_PATH, iface,
-        obs_dim, n_actions, device, SAVE_DIR, MODE_CONFIG["full"])
+        obs_dim, n_actions, device, SAVE_DIR, MODE_CONFIG["full"], dt=dt)
 
     if passed:
         print("\n  ★ FULL SHIELD PASSED — training complete.")

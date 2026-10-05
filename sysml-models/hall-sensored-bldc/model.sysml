@@ -164,8 +164,6 @@ package HallSensoredBrushlessMotor {
         // q-axis inductance is used for this torque-channel abstraction; no
         // unreported phase inductance or friction coefficient is invented.
         attribute electricalSectorWidthRadians : Real;
-        attribute commutationSamplePeriodSeconds : Real;
-
         port drivePort : CommutatedVoltagePort;
         port physicalStatePort : ~MotorPhysicalStatePort;
 
@@ -192,26 +190,26 @@ package HallSensoredBrushlessMotor {
             assign derivative.predictedElectricalAngleWithinSectorRadians :=
                 electricalAngleWithinSectorRadians +
                 derivative.electricalAngleRate *
-                    commutationSamplePeriodSeconds;
+                    dt;
 
-            // Project-defined forward-Euler realization at the documented
-            // 50 microsecond current-sampling period. All derivatives above
-            // are taken from the same pre-update physical snapshot.
+            // Project-defined forward-Euler realization at the source-derived
+            // integration step (50 microseconds under the default execution
+            // parameters). All derivatives above use the same snapshot.
             #ContinuousRate assign rotorMechanicalAngleRadians :=
                 rotorMechanicalAngleRadians +
                 derivative.mechanicalAngleRate *
-                    commutationSamplePeriodSeconds;
+                    dt;
             #ContinuousRate assign rotorMechanicalSpeedRadiansPerSecond :=
                 rotorMechanicalSpeedRadiansPerSecond +
                 derivative.mechanicalSpeedRate *
-                    commutationSamplePeriodSeconds;
+                    dt;
             #ContinuousRate assign energizedPairCurrentAmperes :=
                 energizedPairCurrentAmperes +
                 derivative.energizedPairCurrentRate *
-                    commutationSamplePeriodSeconds;
+                    dt;
 
-            // At the declared nameplate speed, one 50 microsecond step is
-            // much smaller than one 60 electrical-degree Hall sector. These
+            // Under the default parameters, one step at declared nameplate
+            // speed is much smaller than one 60-degree Hall sector. These
             // branches therefore perform at most one exact sector crossing.
             if derivative.predictedElectricalAngleWithinSectorRadians >=
                     electricalSectorWidthRadians {
@@ -275,11 +273,9 @@ package HallSensoredBrushlessMotor {
         attribute dcBusVoltageVolts : Real;
         attribute polePairs : Integer;
         attribute electricalSectorWidthRadians : Real;
-        attribute commutationSamplePeriodSeconds : Real;
         // The hardware uses asynchronous Hall GPIO interrupts. The current
-        // executable runtime has one clock, so Hall capture is conservatively
-        // quantized to this maximum delay. This is a discretization assumption.
-        #ModelAssumption attribute maximumHallCaptureDelaySeconds : Real;
+        // executable runtime has one clock, so Hall capture is quantized to
+        // the source-owned integration step. This is a discretization assumption.
         // The NXP ADC is synchronized to the active PWM interval. The nominal
         // profile assumes ideal signed reconstruction of conducting current.
         #ModelAssumption attribute currentMeasurementErrorAmperes : Real;
@@ -294,7 +290,7 @@ package HallSensoredBrushlessMotor {
             item periods : HallPeriodSnapshot;
 
             assign secondsSinceLastHallEvent :=
-                secondsSinceLastHallEvent + commutationSamplePeriodSeconds;
+                secondsSinceLastHallEvent + dt;
             assign sampledElectricalSector :=
                 plantPort.state.electricalSector;
             assign sampledPairCurrentAmperes :=
@@ -467,7 +463,6 @@ package HallSensoredBrushlessMotor {
         #ModelAssumption attribute effectivePairBackEmfConstantVoltSecondsPerRadian : Real;
         #ModelAssumption attribute effectiveTorqueConstantNewtonMetersPerAmpere : Real;
         #ModelAssumption attribute effectiveBenchInertiaKilogramMetersSquared : Real;
-        attribute currentSafetySamplePeriodSeconds : Real;
         attribute configuredCurrentLimitAmperes : Real;
         attribute currentProjectionNumericalMarginAmperes : Real;
         attribute maximumAuthorizedMechanicalSpeedRadiansPerSecond : Real;
@@ -550,7 +545,7 @@ package HallSensoredBrushlessMotor {
                 effectiveTorqueConstantNewtonMetersPerAmpere *
                     safetySnapshot.observerPairCurrentAmperes /
                     effectiveBenchInertiaKilogramMetersSquared *
-                    currentSafetySamplePeriodSeconds;
+                    dt;
             assign safetyObserverPairCurrentAmperes :=
                 safetySnapshot.observerPairCurrentAmperes +
                 (dcBusVoltageVolts *
@@ -560,7 +555,7 @@ package HallSensoredBrushlessMotor {
                  effectivePairBackEmfConstantVoltSecondsPerRadian *
                     safetySnapshot.observerMechanicalSpeedRadiansPerSecond) /
                     effectivePairInductanceHenries *
-                    currentSafetySamplePeriodSeconds;
+                    dt;
 
             // Solving the encoded electrical recurrence for duty gives the
             // complete interval that keeps the following physical current in
@@ -573,7 +568,7 @@ package HallSensoredBrushlessMotor {
                     currentProjectionNumericalMarginAmperes -
                     safetyObserverPairCurrentAmperes) *
                     effectivePairInductanceHenries /
-                    currentSafetySamplePeriodSeconds) +
+                    dt) +
                  effectivePairResistanceOhms *
                     safetyObserverPairCurrentAmperes +
                  effectivePairBackEmfConstantVoltSecondsPerRadian *
@@ -584,7 +579,7 @@ package HallSensoredBrushlessMotor {
                     currentProjectionNumericalMarginAmperes -
                     safetyObserverPairCurrentAmperes) *
                     effectivePairInductanceHenries /
-                    currentSafetySamplePeriodSeconds) +
+                    dt) +
                  effectivePairResistanceOhms *
                     safetyObserverPairCurrentAmperes +
                  effectivePairBackEmfConstantVoltSecondsPerRadian *
@@ -611,8 +606,8 @@ package HallSensoredBrushlessMotor {
                 assign hallFault := false;
 
                 // Project the bounded proposal onto the exact current-safe
-                // interval. The interval is recomputed at the 50 us current
-                // sampling rate while the neural proposal remains held.
+                // interval. The interval is recomputed at every source-derived
+                // integration step while the neural proposal remains held.
                 if boundedProposedSignedDutyFraction <
                         currentSafeMinimumSignedDutyFraction {
                     assign executedSignedDutyFraction :=
@@ -705,7 +700,7 @@ package HallSensoredBrushlessMotor {
                  effectivePairBackEmfConstantVoltSecondsPerRadian *
                     safetyObserverMechanicalSpeedRadiansPerSecond) /
                     effectivePairInductanceHenries *
-                    currentSafetySamplePeriodSeconds;
+                    dt;
 
             assign signedPhasePairVoltageVolts :=
                 executedSignedDutyFraction * dcBusVoltageVolts;
@@ -719,10 +714,13 @@ package HallSensoredBrushlessMotor {
     }
 
     part def SpeedController {
+        // These two values are the source-owned execution timing contract.
+        // Every pipeline stage derives its integration step from them.
+        #ExecutionParameter attribute controllerIntervalSeconds : Real = 0.001;
+        #ExecutionParameter attribute integrationSubstepsPerControllerInterval : Integer = 20;
         attribute targetMechanicalSpeedRadiansPerSecond : Real;
         attribute completionSpeedToleranceRadiansPerSecond : Real;
         attribute speedControlTickCount : Integer;
-        attribute speedControlTicksPerUpdate : Integer;
         attribute lastProposedSignedDutyFraction : Real;
         attribute lastIssuedSignedDutyFraction : Real;
         attribute lastObservedMechanicalSpeedRadiansPerSecond : Real;
@@ -763,7 +761,7 @@ package HallSensoredBrushlessMotor {
                 reading.sampledPairCurrentAmperes;
             assign lastObservedHallCode := reading.hallCode;
 
-            if speedControlTickCount >= speedControlTicksPerUpdate - 1 {
+            if speedControlTickCount >= integrationSubstepsPerControllerInterval - 1 {
                 action policyCall : Policy {
                     in estimatedMechanicalSpeedRadiansPerSecond :=
                         reading.estimatedMechanicalSpeedRadiansPerSecond;
@@ -809,12 +807,10 @@ package HallSensoredBrushlessMotor {
         flow from drive.voltagePort to plant.drivePort;
 
         attribute currentTimeSeconds : Real = 0.0;
-        attribute commutationSamplePeriodSeconds : Real = 0.00005;
-
         action step {
             in dt : Real;
             #ContinuousRate assign currentTimeSeconds :=
-                currentTimeSeconds + commutationSamplePeriodSeconds;
+                currentTimeSeconds + dt;
         }
 
         #Prohibition
@@ -918,7 +914,7 @@ package HallSensoredBrushlessMotor {
             doc /* Every issued speed-controller proposal shall satisfy the normalized policy contract. */
             subject s : HallSensoredBrushlessMotorSystem;
             require constraint {
-                s.currentTimeSeconds > 0.001 implies
+                s.currentTimeSeconds > s.controller.controllerIntervalSeconds implies
                     s.controller.lastProposedSignedDutyFraction >= -1.0 and
                     s.controller.lastProposedSignedDutyFraction <= 1.0
             }
@@ -954,7 +950,6 @@ package HallSensoredBrushlessMotor {
             attribute :>> externalLoadTorqueNewtonMeters = 0.0;
             attribute :>> unmodeledLossTorqueNewtonMeters = 0.0;
             attribute :>> electricalSectorWidthRadians = 1.047197551197;
-            attribute :>> commutationSamplePeriodSeconds = 0.00005;
         }
 
         part :>> sensor {
@@ -980,8 +975,6 @@ package HallSensoredBrushlessMotor {
             attribute :>> dcBusVoltageVolts = 12.0;
             attribute :>> polePairs = 2;
             attribute :>> electricalSectorWidthRadians = 1.047197551197;
-            attribute :>> commutationSamplePeriodSeconds = 0.00005;
-            attribute :>> maximumHallCaptureDelaySeconds = 0.00005;
             attribute :>> currentMeasurementErrorAmperes = 0.0;
         }
 
@@ -1006,7 +999,6 @@ package HallSensoredBrushlessMotor {
                 0.010614;
             attribute :>> effectiveBenchInertiaKilogramMetersSquared =
                 0.000012;
-            attribute :>> currentSafetySamplePeriodSeconds = 0.00005;
             attribute :>> configuredCurrentLimitAmperes = 6.0;
             // Project to 5.999999 A so binary64 execution remains strictly
             // inside the exact 6 A requirement checked by the runtime.
@@ -1032,8 +1024,6 @@ package HallSensoredBrushlessMotor {
                 targetMechanicalSpeedRadiansPerSecond = 314.159265358979;
             attribute :>> completionSpeedToleranceRadiansPerSecond = 5.0;
             attribute :>> speedControlTickCount = 0;
-            // 20 * 50 microseconds = NXP's documented 1 ms speed period.
-            attribute :>> speedControlTicksPerUpdate = 20;
             attribute :>> lastProposedSignedDutyFraction = 0.0;
             attribute :>> lastIssuedSignedDutyFraction = 0.0;
             attribute :>> lastObservedMechanicalSpeedRadiansPerSecond = 0.0;
@@ -1046,10 +1036,6 @@ package HallSensoredBrushlessMotor {
                 -418.879020478639 and
             controller.targetMechanicalSpeedRadiansPerSecond <=
                 418.879020478639 and
-            plant.commutationSamplePeriodSeconds ==
-                commutationSamplePeriodSeconds and
-            sensor.commutationSamplePeriodSeconds ==
-                commutationSamplePeriodSeconds and
             sensor.dcBusVoltageVolts == drive.dcBusVoltageVolts
         }
     }

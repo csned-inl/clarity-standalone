@@ -23,6 +23,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "rl"))
+sys.path.insert(0, str(ROOT / "sysml-models"))
 
 from continuous_env import ContinuousSysMLEnv  # noqa: E402
 from continuous_model import (  # noqa: E402
@@ -34,10 +35,10 @@ from continuous_ppo import ContinuousEpisodeBuffer, ContinuousRecurrentPPO  # no
 from continuous_training_modes import TRAINING_MODES, training_reward  # noqa: E402
 from hall_motor_shield import HallMotorProjectionShield  # noqa: E402
 from hall_motor_verification import compile_contract  # noqa: E402
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
-DT_SECONDS = 0.00005
 FIXED_TARGET = 314.159265358979
 EXECUTED_MODE = next(
     mode for mode in TRAINING_MODES
@@ -91,10 +92,10 @@ def _fix_target(environment, target: float) -> None:
 
 
 def _environment(model: Path, *, seed: int, max_steps: int,
-                 fixed_target: bool):
+                 fixed_target: bool, dt: float):
     contract = compile_contract(model)
     environment = ContinuousSysMLEnv(
-        str(model), dt=DT_SECONDS, max_steps=max_steps, phase=2,
+        str(model), dt=dt, max_steps=max_steps, phase=2,
         rng_seed=seed, terminate_on_violation=False, violation_penalty=0.0,
         terminating_metadata=frozenset({"Prohibition"}),
         observation_scales={
@@ -207,7 +208,8 @@ def _summary(rows: list[dict]) -> dict:
 
 def run_configuration(config, model_path: Path, *, device, seed: int,
                       episodes: int, evaluation_episodes: int,
-                      max_steps: int, observation_dimension: int) -> dict:
+                      max_steps: int, observation_dimension: int,
+                      dt: float) -> dict:
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -225,7 +227,7 @@ def run_configuration(config, model_path: Path, *, device, seed: int,
     shield = HallMotorProjectionShield(model_path)
     environment = _environment(
         model_path, seed=seed, max_steps=max_steps,
-        fixed_target=config["fixed_target"])
+        fixed_target=config["fixed_target"], dt=dt)
     buffer = ContinuousEpisodeBuffer()
     training = []
     try:
@@ -243,7 +245,7 @@ def run_configuration(config, model_path: Path, *, device, seed: int,
 
     evaluation_environment = _environment(
         model_path, seed=seed + 10_000, max_steps=max_steps,
-        fixed_target=config["fixed_target"])
+        fixed_target=config["fixed_target"], dt=dt)
     evaluation = []
     try:
         for _ in range(evaluation_episodes):
@@ -274,21 +276,24 @@ def main() -> int:
     args = parser.parse_args()
     if args.output.exists():
         parser.error(f"output already exists: {args.output}")
+    model_path = args.model.resolve()
+    execution = load_execution_parameters(model_path)
+    dt = execution.integration_step_float
     device = select_torch_device(args.device)
     probe = _environment(
-        args.model.resolve(), seed=args.seed, max_steps=args.max_steps,
-        fixed_target=True)
+        model_path, seed=args.seed, max_steps=args.max_steps,
+        fixed_target=True, dt=dt)
     try:
         observation_dimension = probe.obs_dim
     finally:
         probe.close()
     results = [
         run_configuration(
-            config, args.model.resolve(), device=device, seed=args.seed,
+            config, model_path, device=device, seed=args.seed,
             episodes=args.episodes,
             evaluation_episodes=args.evaluation_episodes,
             max_steps=args.max_steps,
-            observation_dimension=observation_dimension)
+            observation_dimension=observation_dimension, dt=dt)
         for config in CONFIGURATIONS
     ]
     args.output.mkdir(parents=True)
@@ -299,6 +304,7 @@ def main() -> int:
         "episodes": args.episodes,
         "evaluation_episodes": args.evaluation_episodes,
         "max_steps": args.max_steps,
+        "execution_parameters": execution.as_dict(),
         "results": results,
     }
     (args.output / "diagnostic.json").write_text(

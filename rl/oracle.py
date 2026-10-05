@@ -21,6 +21,7 @@ from sysml_parser import (SysMLParser, InputBindingStmt, SubactionCallStmt,
                            RefExpr, BinaryExpr, LiteralExpr, UnaryExpr,
                            TernaryExpr)
 from shield import SpecShield
+from execution_parameters import load_execution_parameters
 
 
 # ---------------------------------------------------------------------------
@@ -64,13 +65,16 @@ def _flatten_and(expr):
 # SysML interface extraction
 # ---------------------------------------------------------------------------
 
-def extract_interface(model_path: str, dt: float = 0.1):
+def extract_interface(model_path: str, dt: float | None = None):
     """Extract obs_names, action_names, is_done, goal_distance from SysML.
 
     Returns dict with everything the oracle and environment need.
     No simulation engine, no propagationDelay — the oracle is derived
     directly from the #NeuralRequirement via SpecShield.
     """
+    execution = load_execution_parameters(model_path)
+    if dt is not None:
+        execution.require_matching_integration_step(dt)
     parser = SysMLParser(model_path)
     parser.parse()
 
@@ -166,6 +170,7 @@ def extract_interface(model_path: str, dt: float = 0.1):
         "is_done": is_done,
         "goal_distance": goal_distance,
         "spec_shield": spec_shield,
+        "execution_parameters": execution.as_dict(),
     }
 
 

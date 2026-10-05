@@ -15,6 +15,7 @@ sys.path.insert(0, str(ROOT / "sysml-models"))
 sys.path.insert(0, str(ROOT / "rl"))
 
 from analytic import evaluate, fit, save  # noqa: E402
+from execution_parameters import load_execution_parameters  # noqa: E402
 from formal import verify  # noqa: E402
 from gru import train_and_select  # noqa: E402
 from shield import SpecShield  # noqa: E402
@@ -24,15 +25,13 @@ MODELS = {
     "cruise": ROOT / "sysml-models" / "cruise-controller-model" / "model.sysml",
     "mixing": ROOT / "sysml-models" / "mixing-sysml-model" / "model.sysml",
 }
-MODEL_DT = {"thermostat": 1.0, "cruise": 0.1, "mixing": 0.1}
-
-
 def run_one(model_name: str, mode: str, output_root: Path, *, nuxmv: Path,
             timeout: int, seed: int, max_steps: int, eval_episodes: int,
             test_episodes: int, oracle_samples: int, oracle_epochs: int,
-            ppo_episodes: int) -> dict:
+    ppo_episodes: int) -> dict:
     model = MODELS[model_name]
-    dt = MODEL_DT[model_name]
+    execution = load_execution_parameters(model)
+    dt = execution.integration_step_float
     out_dir = output_root / model_name / mode
     if out_dir.exists():
         raise FileExistsError(f"run directory already exists: {out_dir}")
@@ -77,6 +76,9 @@ def run_one(model_name: str, mode: str, output_root: Path, *, nuxmv: Path,
     summary = {
         "model": model_name, "method": mode,
         "dt_seconds": dt,
+        "controller_interval_seconds": float(
+            execution.controller_interval_seconds),
+        "execution_parameters": execution.as_dict(),
         "model_sha256": proof["model_sha256"],
         "formal_verified": proof["verified"],
         "formal_report": str((out_dir / "formal" / "verification.json").resolve()),

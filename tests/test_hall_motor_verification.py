@@ -121,6 +121,21 @@ class HallMotorVerificationTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "safety-slice digest"):
                 compile_contract(changed)
 
+    def test_source_timing_change_recompiles_without_digest_rewrite(self):
+        source = MODEL.read_text().replace(
+            "controllerIntervalSeconds : Real = 0.001;",
+            "controllerIntervalSeconds : Real = 0.01;",
+            1,
+        )
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            changed = Path(directory) / "model.sysml"
+            changed.write_text(source)
+            contract = compile_contract(changed)
+        self.assertEqual(contract.controller_interval_seconds, 0.01)
+        self.assertEqual(
+            contract.integration_substeps_per_controller_interval, 20)
+        self.assertEqual(contract.sample_period_seconds, 0.0005)
+
     def test_nuxmv_stage_runs_every_obligation_in_isolation(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             root = Path(directory)

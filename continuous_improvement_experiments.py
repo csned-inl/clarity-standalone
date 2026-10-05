@@ -19,6 +19,7 @@ import torch.nn as nn
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "rl"))
+sys.path.insert(0, str(ROOT / "sysml-models"))
 
 from continuous_env import ContinuousSysMLEnv  # noqa: E402
 from continuous_gru import generate_oracle_data  # noqa: E402
@@ -35,6 +36,7 @@ from continuous_ppo import (  # noqa: E402
 from continuous_spec import ExactContinuousShield  # noqa: E402
 from continuous_training_experiments import _episode, _summarize  # noqa: E402
 from continuous_training_modes import TRAINING_MODES  # noqa: E402
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 MODEL = ROOT / "sysml-models" / "rotary-inverted-pendulum" / "model.sysml"
@@ -159,7 +161,9 @@ def main():
     parser.add_argument("--ppo-episodes", type=int, default=20)
     parser.add_argument("--evaluation-episodes", type=int, default=10)
     parser.add_argument("--max-steps", type=int, default=6000)
-    parser.add_argument("--dt", type=float, default=0.001)
+    parser.add_argument(
+        "--dt", type=float, default=None,
+        help="compatibility assertion; must equal the source-derived integration step")
     parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
     if args.output.exists():
@@ -169,13 +173,16 @@ def main():
         parser.error("all count arguments must be positive")
 
     model_path = args.model.resolve()
+    execution = load_execution_parameters(model_path)
+    dt = (execution.integration_step_float if args.dt is None else
+          execution.require_matching_integration_step(args.dt))
     device = select_torch_device(args.device)
     random.seed(args.seed)
     np.random.seed(args.seed)
     torch.manual_seed(args.seed)
     shield = ExactContinuousShield(str(model_path))
     probe = ContinuousSysMLEnv(
-        str(model_path), dt=args.dt, max_steps=args.max_steps,
+        str(model_path), dt=dt, max_steps=args.max_steps,
         phase=1, rng_seed=args.seed)
     try:
         obs_dim, action_dim = probe.obs_dim, probe.action_dim
@@ -223,17 +230,17 @@ def main():
                 policy, model_path, shield, _mode(fine_tune),
                 device=device, episodes=args.ppo_episodes,
                 episodes_per_update=5, max_steps=args.max_steps,
-                seed=args.seed + 1000, dt=args.dt, **reward)
+                seed=args.seed + 1000, dt=dt, **reward)
         shielded = _evaluate(
             policy, model_path, shield, _mode("shielded_proposal_credit"),
             device=device, episodes=args.evaluation_episodes,
             max_steps=args.max_steps, seed=args.seed + 20_000,
-            dt=args.dt, **reward)
+            dt=dt, **reward)
         unshielded = _evaluate(
             policy, model_path, shield, _mode("unshielded_safety_terminate"),
             device=device, episodes=args.evaluation_episodes,
             max_steps=args.max_steps, seed=args.seed + 20_000,
-            dt=args.dt, **reward)
+            dt=dt, **reward)
         candidate_dir = args.output / name
         candidate_dir.mkdir()
         checkpoint = candidate_dir / "experimental_policy.pt"
@@ -276,6 +283,7 @@ def main():
         "ppo_episodes": args.ppo_episodes,
         "evaluation_episodes": args.evaluation_episodes,
         "max_steps": args.max_steps,
+        "execution_parameters": execution.as_dict(),
         "common_initial_weights_for_recurrent_candidates": True,
         "feedforward_candidate_initialized_from_same_seed": True,
         "common_oracle_data": True,

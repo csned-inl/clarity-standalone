@@ -18,7 +18,7 @@ def train_and_select(model: Path, out_dir: Path, *, seed: int = 42,
                      max_steps: int = 1200, eval_episodes: int = 100,
                      test_episodes: int = 100,
                      oracle_samples: int = 2000, oracle_epochs: int = 100,
-                     ppo_episodes: int = 2000, dt: float = 0.1) -> dict:
+                     ppo_episodes: int = 2000, dt: float | None = None) -> dict:
     """Train the original GRU, then publish only a safe evaluated checkpoint."""
     if ppo_episodes < 100 or ppo_episodes % 100:
         raise ValueError("PPO episodes must be a positive multiple of 100")
@@ -58,7 +58,9 @@ def train_and_select(model: Path, out_dir: Path, *, seed: int = 42,
         "observation_dimension": obs_dim, "action_count": n_actions,
         "parameter_count": sum(p.numel() for p in composite.policy.parameters()),
         "seed": seed,
-        "dt_seconds": dt,
+        "integration_step_seconds": iface["execution_parameters"][
+            "integration_step_seconds"],
+        "execution_parameters": iface["execution_parameters"],
     }
     (out_dir / "checkpoint_selection.json").write_text(
         json.dumps(report, indent=2, sort_keys=True) + "\n")

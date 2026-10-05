@@ -20,7 +20,7 @@ Translation strategy:
 
 Integer step-action targets use bounded integer arithmetic with Euler
 integration and clamping; real targets use nuXmv native real arithmetic
-without clamping.  dt = 1 time unit per step.
+without clamping. `dt` is derived from the model's execution parameters.
 """
 
 import argparse
@@ -29,6 +29,7 @@ import sys
 from pathlib import Path
 from typing import Any, Optional
 
+from execution_parameters import load_execution_parameters
 from sysml_parser import (
     ExpressionParser,
     Expr, LiteralExpr, RefExpr, BinaryExpr, TernaryExpr, UnaryExpr,
@@ -2141,7 +2142,9 @@ def main() -> int:
     )
     ap.add_argument("model_file", help="Path to the SysML v2 model file")
     ap.add_argument("-o", "--output", help="Output SMV file (default: stdout)")
-    ap.add_argument("--dt", default="1", help="Time step for Euler integration (default: 1)")
+    ap.add_argument(
+        "--dt", type=float, default=None,
+        help="integration step; when supplied it must equal the SysML-derived value")
     ap.add_argument("--max-int", type=int, default=2147483647,
                     help="Upper bound for integer ranges (default: 2147483647)")
     args = ap.parse_args()
@@ -2153,11 +2156,15 @@ def main() -> int:
     try:
         parser = SysMLParser(args.model_file)
         parser.parse()
+        execution = load_execution_parameters(args.model_file)
+        dt = execution.integration_step_float
+        if args.dt is not None:
+            dt = execution.require_matching_integration_step(args.dt)
     except Exception as e:
         print(f"Error parsing model: {e}", file=sys.stderr)
         return 1
 
-    gen = SMVGenerator(parser, dt=args.dt, max_int=args.max_int)
+    gen = SMVGenerator(parser, dt=format(dt, ".17g"), max_int=args.max_int)
     smv = gen.generate()
 
     if args.output:

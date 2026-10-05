@@ -5,6 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 import threading
 
+from execution_parameters import load_execution_parameters
 from requirement_events import RequirementLedger
 from sysml_parser import SysMLParser
 from simulator import SimulationEngine
@@ -19,9 +20,12 @@ class AdvanceResult:
 
 
 class SimulatorTwin:
-    def __init__(self, model_path: str, dt: float = 0.1):
+    def __init__(self, model_path: str, dt: float | None = None):
         self._model_path = model_path
-        self._dt = dt
+        self._execution_parameters = load_execution_parameters(model_path)
+        expected_dt = self._execution_parameters.integration_step_float
+        self._dt = (expected_dt if dt is None else
+                    self._execution_parameters.require_matching_integration_step(dt))
         self._parser = SysMLParser(model_path)
         self._parser.parse()
         self._engine = None
@@ -164,6 +168,10 @@ class SimulatorTwin:
     @property
     def dt(self):
         return self._dt
+
+    @property
+    def execution_parameters(self):
+        return self._execution_parameters
 
     def stop(self):
         self._stop()

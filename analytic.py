@@ -162,7 +162,7 @@ def save(policy: dict, path: str | Path):
 
 
 def evaluate(model_path: str | Path, policy: dict, *, episodes: int,
-             seed: int, max_steps: int, dt: float = 0.1) -> dict:
+             seed: int, max_steps: int, dt: float | None = None) -> dict:
     """Evaluate the fitted rule and its SysML-derived shield in the twin."""
     from env import SysMLEnv
 

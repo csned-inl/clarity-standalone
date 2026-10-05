@@ -17,6 +17,7 @@ import torch
 
 ROOT = Path(__file__).resolve().parent
 sys.path.insert(0, str(ROOT / "rl"))
+sys.path.insert(0, str(ROOT / "sysml-models"))
 
 from continuous_env import ContinuousSysMLEnv  # noqa: E402
 from continuous_model import (  # noqa: E402
@@ -32,6 +33,7 @@ from continuous_training_modes import (  # noqa: E402
     TRAINING_MODES,
     training_reward,
 )
+from execution_parameters import load_execution_parameters  # noqa: E402
 
 
 MODEL = ROOT / "sysml-models" / "rotary-inverted-pendulum" / "model.sysml"
@@ -245,7 +247,9 @@ def main():
     parser.add_argument("--episodes-per-update", type=int, default=10)
     parser.add_argument("--evaluation-episodes", type=int, default=20)
     parser.add_argument("--max-steps", type=int, default=3000)
-    parser.add_argument("--dt", type=float, default=0.001)
+    parser.add_argument(
+        "--dt", type=float, default=None,
+        help="compatibility assertion; must equal the source-derived integration step")
     parser.add_argument("--penalty-cap", type=float, default=1.0)
     parser.add_argument("--action-error-scale", type=float, default=10.0)
     parser.add_argument("--time-budget", type=float, default=0.10)
@@ -262,10 +266,14 @@ def main():
     if min(args.time_budget, args.override_budget) < 0.0:
         parser.error("time and override budgets must be nonnegative")
 
+    model_path = args.model.resolve()
+    execution = load_execution_parameters(model_path)
+    dt = (execution.integration_step_float if args.dt is None else
+          execution.require_matching_integration_step(args.dt))
     device = select_torch_device(args.device)
-    shield = ExactContinuousShield(str(args.model.resolve()))
+    shield = ExactContinuousShield(str(model_path))
     probe = ContinuousSysMLEnv(
-        str(args.model.resolve()), dt=args.dt, max_steps=args.max_steps,
+        str(model_path), dt=dt, max_steps=args.max_steps,
         phase=1, rng_seed=args.seed)
     try:
         observation_dimension = probe.obs_dim
@@ -286,7 +294,7 @@ def main():
     results = []
     for mode in TRAINING_MODES:
         results.append(run_mode(
-            args.model.resolve(), args.output / mode.name,
+            model_path, args.output / mode.name,
             initial_state, mode, shield=shield,
             observation_dimension=observation_dimension,
             action_dimension=action_dimension,
@@ -299,10 +307,10 @@ def main():
             action_error_scale=args.action_error_scale,
             time_budget=args.time_budget,
             override_budget=args.override_budget,
-            dt=args.dt))
+            dt=dt))
     report = {
         "schema": "clarity.continuous-training-comparison.v1",
-        "source_model": str(args.model.resolve()),
+        "source_model": str(model_path),
         "source_model_sha256": hashlib.sha256(
             args.model.read_bytes()).hexdigest(),
         "device": str(device),
@@ -310,6 +318,7 @@ def main():
         "episodes_per_mode": args.episodes,
         "evaluation_episodes_per_mode": args.evaluation_episodes,
         "max_steps": args.max_steps,
+        "execution_parameters": execution.as_dict(),
         "proposal_penalty_cap": args.penalty_cap,
         "time_penalty_budget": args.time_budget,
         "override_penalty_budget": args.override_budget,

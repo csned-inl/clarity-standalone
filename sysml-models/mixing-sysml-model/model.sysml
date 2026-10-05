@@ -235,8 +235,10 @@ package TankFillingSystem {
         attribute observedLevel1 : Integer = 0;
         attribute observedLevel2 : Integer = 0;
 
-        // Scan frequency.
-        attribute scanCycleFrequencyHz : Integer = 10;
+        // One source-owned controller interval drives simulation, proof, and
+        // training.  Substeps may be increased without duplicating timing.
+        #ExecutionParameter attribute controllerIntervalSeconds : Real = 0.1;
+        #ExecutionParameter attribute integrationSubstepsPerControllerInterval : Integer = 1;
         attribute lastScanTimeSeconds : Real = 0;
         attribute currentTimeSeconds : Real = 0;
 
@@ -425,7 +427,7 @@ package TankFillingSystem {
             in dt : Real;
 
             #ContinuousRate assign currentTimeSeconds := currentTimeSeconds + dt;
-            if currentTimeSeconds - lastScanTimeSeconds >= 1.0 / scanCycleFrequencyHz {
+            if currentTimeSeconds - lastScanTimeSeconds >= controllerIntervalSeconds {
                 assign lastScanTimeSeconds := currentTimeSeconds;
                 perform action ScanCycle;
             }

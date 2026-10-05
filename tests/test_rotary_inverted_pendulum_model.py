@@ -11,6 +11,7 @@ sys.path.insert(0, str(ROOT / "sysml-models"))
 
 from simulator import ExpressionEvaluator, SimulationEngine, resolve_value
 from sysml_parser import SysMLParser
+from execution_parameters import load_execution_parameters
 
 
 MODEL = ROOT / "sysml-models/rotary-inverted-pendulum/model.sysml"
@@ -79,7 +80,9 @@ class RotaryInvertedPendulumModelTests(unittest.TestCase):
             "system::plant::pendulumAngleFromUprightRadians",
             "system::encoder::sampledPendulumAngleFromUprightRadians",
         )
-        self.assertEqual(resolve_value(engine.state, "system::samplePeriodSeconds"), 0.001)
+        execution = load_execution_parameters(MODEL)
+        self.assertEqual(execution.integration_step_float, 0.001)
+        self.assertEqual(execution.integration_substeps, 1)
         self.assertEqual(engine.state["system::amplifier::maximumVoltageMagnitude"], 10.0)
 
     def test_model_contains_nonsemantic_source_provenance(self):
