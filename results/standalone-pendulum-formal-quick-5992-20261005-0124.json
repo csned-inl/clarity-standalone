@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 1,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-pendulum-formal-quick-5992-20261005-0124",
+  "resolved_sha": "599255d5815e1bafc8c160c06ecd5a4f05a9302c",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "599255d5815e1bafc8c160c06ecd5a4f05a9302c",
+  "stderr_tail": "",
+  "stdout_tail": "Wrote runs/pendulum-formal-quick/model.smv\n[\n  {\n    \"index\": 1,\n    \"kind\": \"requirement\",\n    \"name\": \"Motor Voltage Within Authorized Range\",\n    \"nuXmv_results\": [],\n    \"nuXmv_returncode\": 0,\n    \"smv\": \"/home/github-runner/clarity-jobs/da81e24b984fd6bdc86b5ae6/runs/pendulum-formal-quick/001-motor-voltage-within-authorized-range/model.smv\",\n    \"smv_sha256\": \"a0e80bba30c228c9450a04498bcdeaee2c43a6c3a63d87b571702e63d3381c04\",\n    \"status\": \"inconclusive\",\n    \"transcript\": \"/home/github-runner/clarity-jobs/da81e24b984fd6bdc86b5ae6/runs/pendulum-formal-quick/001-motor-voltage-within-authorized-range/nuxmv.txt\"\n  },\n  {\n    \"index\": 3,\n    \"kind\": \"requirement\",\n    \"name\": \"Controller Supplies State Feedback\",\n    \"nuXmv_results\": [],\n    \"nuXmv_returncode\": 0,\n    \"smv\": \"/home/github-runner/clarity-jobs/da81e24b984fd6bdc86b5ae6/runs/pendulum-formal-quick/003-controller-supplies-state-feedback/model.smv\",\n    \"smv_sha256\": \"709e8759172be0996db930d0a74c02495af7259bb72a32d38ee36e698d093a01\",\n    \"status\": \"inconclusive\",\n    \"transcript\": \"/home/github-runner/clarity-jobs/da81e24b984fd6bdc86b5ae6/runs/pendulum-formal-quick/003-controller-supplies-state-feedback/nuxmv.txt\"\n  }\n]\n",
+  "worker": "ubuntu-blink"
+}
