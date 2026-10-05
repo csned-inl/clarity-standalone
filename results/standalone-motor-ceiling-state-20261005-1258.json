@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-ceiling-state-20261005-1258",
+  "resolved_sha": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "stderr_tail": "",
+  "stdout_tail": "{\"outcome\": \"RUNNING\", \"state\": {\"estimatedMechanicalSpeedRadiansPerSecond\": 0.0, \"hallCode\": 6, \"sampledPairCurrentAmperes\": 25.34974874974954, \"targetMechanicalSpeedRadiansPerSecond\": 942.477796076938}, \"step\": 1}\n{\"outcome\": \"RUNNING\", \"state\": {\"estimatedMechanicalSpeedRadiansPerSecond\": 361.1026038610346, \"hallCode\": 3, \"sampledPairCurrentAmperes\": -6.6376852199117184, \"targetMechanicalSpeedRadiansPerSecond\": 942.477796076938}, \"step\": 50}\n{\"outcome\": \"RUNNING\", \"state\": {\"estimatedMechanicalSpeedRadiansPerSecond\": 510.8280737546341, \"hallCode\": 2, \"sampledPairCurrentAmperes\": -10.6658947993875, \"targetMechanicalSpeedRadiansPerSecond\": 942.477796076938}, \"step\": 300}\n{\"outcome\": \"RUNNING\", \"state\": {\"estimatedMechanicalSpeedRadiansPerSecond\": 510.82807375463403, \"hallCode\": 3, \"sampledPairCurrentAmperes\": -10.670071442858198, \"targetMechanicalSpeedRadiansPerSecond\": 942.477796076938}, \"step\": 1000}\n{\"outcome\": \"TRUNCATED\", \"state\": {\"estimatedMechanicalSpeedRadiansPerSecond\": 510.8280737546341, \"hallCode\": 6, \"sampledPairCurrentAmperes\": -10.670071442876536, \"targetMechanicalSpeedRadiansPerSecond\": 942.477796076938}, \"step\": 3000}\n",
+  "worker": "macbook"
+}
