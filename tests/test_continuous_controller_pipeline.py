@@ -107,6 +107,10 @@ class ContinuousControllerPipelineTests(unittest.TestCase):
             "controller_policyCall_proposedMotorVoltage;",
             source,
         )
+        self.assertNotIn(
+            "scan_phase >= 1 & scan_phase < 1 : scan_phase + 1",
+            source,
+        )
         self.assertEqual(source.count("controller_lastProposedVoltage : real;"), 1)
         self.assertNotIn("controller_lastProposedVoltage :=", source)
         self.assertNotRegex(

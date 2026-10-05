@@ -1469,7 +1469,10 @@ class SMVGenerator:
             lines.append("  next(scan_phase) :=")
             lines.append("    case")
             lines.append("      scan_phase = 0 & scan_fires : 1;")
-            lines.append(f"      scan_phase >= 1 & scan_phase < {n} : scan_phase + 1;")
+            if n > 1:
+                lines.append(
+                    f"      scan_phase >= 1 & scan_phase < {n} : "
+                    "scan_phase + 1;")
             lines.append(f"      scan_phase = {n} : 0;")
             lines.append("      TRUE : 0;")
             lines.append("    esac;")
