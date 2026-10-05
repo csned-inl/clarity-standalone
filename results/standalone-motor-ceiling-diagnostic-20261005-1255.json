@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-ceiling-diagnostic-20261005-1255",
+  "resolved_sha": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "stderr_tail": "",
+  "stdout_tail": "{\"estimated_speed\": null, \"executed_duty\": null, \"hall\": null, \"limited_duty\": null, \"measured_current\": null, \"outcome\": \"RUNNING\", \"physical_current\": null, \"physical_speed\": null, \"step\": 50}\n{\"estimated_speed\": null, \"executed_duty\": null, \"hall\": null, \"limited_duty\": null, \"measured_current\": null, \"outcome\": \"RUNNING\", \"physical_current\": null, \"physical_speed\": null, \"step\": 100}\n{\"estimated_speed\": null, \"executed_duty\": null, \"hall\": null, \"limited_duty\": null, \"measured_current\": null, \"outcome\": \"RUNNING\", \"physical_current\": null, \"physical_speed\": null, \"step\": 300}\n{\"estimated_speed\": null, \"executed_duty\": null, \"hall\": null, \"limited_duty\": null, \"measured_current\": null, \"outcome\": \"RUNNING\", \"physical_current\": null, \"physical_speed\": null, \"step\": 1000}\n{\"estimated_speed\": null, \"executed_duty\": null, \"hall\": null, \"limited_duty\": null, \"measured_current\": null, \"outcome\": \"RUNNING\", \"physical_current\": null, \"physical_speed\": null, \"step\": 2000}\n{\"estimated_speed\": null, \"executed_duty\": null, \"hall\": null, \"limited_duty\": null, \"measured_current\": null, \"outcome\": \"TRUNCATED\", \"physical_current\": null, \"physical_speed\": null, \"step\": 3000}\n",
+  "worker": "macbook"
+}
