@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-corrected-tests-20261005-1612",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "e19e9688d034be9a695d0c7fddb0f3377acc09ba"
+  },
+  "command": "python3 -m unittest tests.test_hall_sensored_bldc_model tests.test_hall_motor_verification tests.test_hall_motor_training tests.test_continuous_training_modes tests.test_continuous_ppo -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
