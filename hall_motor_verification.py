@@ -21,6 +21,9 @@ from formal import verify_smv
 
 ROOT = Path(__file__).resolve().parent
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
+EXPECTED_SAFETY_SLICE_SHA256 = (
+    "58aa2f4dfb76cf9b62722c092fcddb1691ab64a58e405a90cdc9463154c51d54"
+)
 
 POSITIVE_TABLE = {
     6: (3, 2, 1),
@@ -85,6 +88,12 @@ def compile_contract(model: Path = MODEL) -> MotorSafetyContract:
         source, "part def SpeedController",
         "part def HallSensoredBrushlessMotorSystem")
     system = _body(source, "part def HallSensoredBrushlessMotorSystem", "part system")
+    safety_slice = "\n--SLICE--\n".join((drive, controller, system))
+    safety_slice_sha256 = hashlib.sha256(safety_slice.encode()).hexdigest()
+    if safety_slice_sha256 != EXPECTED_SAFETY_SLICE_SHA256:
+        raise ValueError(
+            "unreviewed controller/drive safety-slice digest; update the "
+            "compiler only after reviewing the changed SysML relations")
 
     maximum_duty = _one_number(
         source,

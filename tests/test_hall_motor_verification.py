@@ -95,7 +95,7 @@ class HallMotorVerificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             changed = Path(directory) / "model.sysml"
             changed.write_text(source)
-            with self.assertRaisesRegex(ValueError, "phase tuple"):
+            with self.assertRaisesRegex(ValueError, "safety-slice digest"):
                 compile_contract(changed)
 
     def test_limiter_drift_is_rejected_before_proof(self):
@@ -107,7 +107,7 @@ class HallMotorVerificationTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
             changed = Path(directory) / "model.sysml"
             changed.write_text(source)
-            with self.assertRaisesRegex(ValueError, "current-limiter branch"):
+            with self.assertRaisesRegex(ValueError, "safety-slice digest"):
                 compile_contract(changed)
 
     def test_nuxmv_stage_runs_every_obligation_in_isolation(self):
