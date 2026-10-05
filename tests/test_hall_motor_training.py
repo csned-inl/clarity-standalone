@@ -49,6 +49,8 @@ class HallMotorTrainingTests(unittest.TestCase):
         self.assertIn(
             '"system::drive::executedSignedDutyFraction"', training
         )
+        self.assertIn('key.endswith("::" + leaf)', source)
+        self.assertIn("state = env.process_state", source)
 
     def test_environment_excludes_completion_and_has_no_constructor_step(self):
         source = (ROOT / "rl" / "env.py").read_text()

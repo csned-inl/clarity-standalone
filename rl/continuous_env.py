@@ -118,3 +118,8 @@ class ContinuousSysMLEnv(SysMLEnv):
     @property
     def raw_model_inputs(self) -> dict:
         return dict(self._twin._model_inputs)
+
+    @property
+    def process_state(self) -> dict:
+        """Return the completed simulator state, distinct from policy inputs."""
+        return dict(self._twin.engine.state)

@@ -78,13 +78,22 @@ def _episode(env, model, shield, mode, device, *, greedy,
         # remains attached to the sampled proposal.
         process_action = executed
         if mode.use_shield and executed_action_state_key is not None:
-            state = info.get("state") or {}
-            if executed_action_state_key not in state:
+            # ``info['state']`` is the next policy-input packet, not the full
+            # process state.  Read the completed transition state explicitly.
+            state = env.process_state
+            leaf = executed_action_state_key.rsplit("::", 1)[-1]
+            matches = [
+                value for key, value in state.items()
+                if key == executed_action_state_key
+                or key == leaf
+                or key.endswith("::" + leaf)
+            ]
+            if len(matches) != 1:
                 raise RuntimeError(
-                    "executed action is absent from simulator state: "
-                    f"{executed_action_state_key}"
+                    "executed action must resolve uniquely in simulator state: "
+                    f"{executed_action_state_key}; matches={len(matches)}"
                 )
-            process_action = float(state[executed_action_state_key])
+            process_action = float(matches[0])
         correction = abs(proposed - process_action)
         intervened = correction > shield.comparison_abs_tol
         reward = training_reward(
