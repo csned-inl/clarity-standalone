@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-training-regression-2b73-20261005-044619",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "2b73745d2a78af93a265cee0c4def547d8099ffc"
+  },
+  "command": "python3 -m unittest discover -s tests -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
