@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-affine-tests-d3d7-20261005-035712",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "d3d72e0dc3f1d522384bce5c13f16f034122d5d9"
+  },
+  "command": "python3 -m unittest discover -s tests -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 1,
+    "min_memory_mb": 2000
+  }
+}
