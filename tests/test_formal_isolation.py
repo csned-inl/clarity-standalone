@@ -43,6 +43,11 @@ else:
 ''',
 )
 
+FAKE_NUXMV_WITH_TOOL_ERROR = FAKE_NUXMV.replace(
+    'print("-- invariant isolated is true")',
+    'print(\'file model.smv: line 1: "missing" undefined\\naborting "source check.cmd"\')',
+)
+
 
 class FormalIsolationTests(unittest.TestCase):
     @staticmethod
@@ -101,6 +106,22 @@ class FormalIsolationTests(unittest.TestCase):
                              "proved")
             self.assertEqual(statuses["Controller Supplies State Feedback"],
                              "proved")
+
+    def test_zero_exit_tool_diagnostic_is_an_error_not_inconclusive(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            root = Path(directory)
+            fake = self._executable(root, FAKE_NUXMV_WITH_TOOL_ERROR)
+            report = verify(
+                MODEL, root / "formal", dt=0.001, nuxmv=fake,
+                timeout_seconds=10)
+
+            self.assertFalse(report["verified"])
+            self.assertTrue(all(
+                result["status"] == "error"
+                for result in report["obligations"]))
+            self.assertTrue(all(
+                result["nuXmv_errors"]
+                for result in report["obligations"]))
 
 
 if __name__ == "__main__":

@@ -136,6 +136,11 @@ class ContinuousControllerPipelineTests(unittest.TestCase):
             self.assertIn(f"next({name})", source)
         self.assertNotIn("encoder_sampled", property_text)
         self.assertNotIn("encoder_estimated", property_text)
+        self.assertNotIn("controller_reading_", source)
+        self.assertIn(
+            "TRUE : (encoder_reading_armAngleRadians);",
+            source,
+        )
 
 
 if __name__ == "__main__":

@@ -108,8 +108,16 @@ def _run_obligation(obligation: Obligation, source: str, directory: Path,
     transcript_path.write_text(transcript)
     outcomes = re.findall(
         r"^-- invariant .*? is (true|false)\s*$", transcript, re.MULTILINE)
+    tool_errors = re.findall(
+        r"(?:^|\n)(?:file .*?: line \d+: .* undefined|"
+        r".*syntax error.*|.*aborting ['\"]source .*|Error: .*)",
+        transcript,
+        re.IGNORECASE,
+    )
     if returncode == 124:
         status = "timeout"
+    elif tool_errors:
+        status = "error"
     elif outcomes == ["true"] and returncode == 0:
         status = "proved"
     elif outcomes == ["false"]:
@@ -126,6 +134,7 @@ def _run_obligation(obligation: Obligation, source: str, directory: Path,
         "status": status,
         "nuXmv_returncode": returncode,
         "nuXmv_results": outcomes,
+        "nuXmv_errors": tool_errors,
         "smv": str(smv.resolve()),
         "smv_sha256": _sha256(smv),
         "transcript": str(transcript_path.resolve()),

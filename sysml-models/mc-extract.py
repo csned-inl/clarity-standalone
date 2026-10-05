@@ -1509,7 +1509,16 @@ class SMVGenerator:
         has_phases = self._scan_phase_count > 0
         for sa in self._step_actions:
             smv_n = self._smv(sa.target_key)
-            new_val = self._to_smv(sa.expression, sa.context)
+            # Controller step expressions may refer to a locally accepted
+            # item (for example reading.armAngleRadians).  Resolve that local
+            # through the connected sender exactly as neural input bindings
+            # and action-body sends do; otherwise an undefined
+            # controller_reading_* identifier is emitted.
+            accept_map = (getattr(self, '_accept_map', {})
+                          if sa.context == self.parser.controller_part else {})
+            new_val = (self._to_smv_with_accept_map(
+                sa.expression, sa.context, accept_map)
+                if accept_map else self._to_smv(sa.expression, sa.context))
             cond_smv = self._to_smv(sa.condition, sa.context, preserve_real_literals=
                 any(sa.condition is c for c in self._scan_conditions.values())) if sa.condition else None
             if self._is_boolean(sa.target_key) or self._needs_real(sa.target_key):
