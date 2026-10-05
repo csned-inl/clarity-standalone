@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-hybrid-proof-d3d7-20261005-035712",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "d3d72e0dc3f1d522384bce5c13f16f034122d5d9"
+  },
+  "command": "python3 continuous_pipeline.py --output runs/standalone-pendulum-hybrid-proof-d3d7-20261005-035712 --nuxmv \"$HOME/tools/nuxmv/2.2.0/nuxmv-2.2.0.sh\" --timeout 300 && python3 - <<'PY'\nimport json\nfrom pathlib import Path\np=Path(\"runs/standalone-pendulum-hybrid-proof-d3d7-20261005-035712/summary.json\")\nr=json.loads(p.read_text())\nf=r[\"formal\"]\nprint(json.dumps({\"verified\":f[\"verified\"],\"method\":f[\"method\"],\"obligations\":[{\"name\":o[\"name\"],\"status\":o[\"status\"],\"method\":o.get(\"method\",\"nuXmv\")} for o in f[\"obligations\"]]},indent=2,sort_keys=True))\nif not f[\"verified\"]:\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
