@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-pendulum-phase-test-3524-20261005-0138",
+  "resolved_sha": "3524c87e7ef299429c7d61d2ef61c89d63292343",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "3524c87e7ef299429c7d61d2ef61c89d63292343",
+  "stderr_tail": "test_smv_couples_controller_command_to_amplifier (tests.test_continuous_controller_pipeline.ContinuousControllerPipelineTests.test_smv_couples_controller_command_to_amplifier) ... ok\n\n----------------------------------------------------------------------\nRan 1 test in 0.099s\n\nOK\n",
+  "stdout_tail": "",
+  "worker": "ubuntu-blink"
+}
