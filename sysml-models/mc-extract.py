@@ -1095,9 +1095,14 @@ class SMVGenerator:
                                     'value_smv': val_smv,
                                     'device_fqn': recv_fqn,
                                 })
-                                # Track sensor reads: sensor var → (phase, source)
-                                self._sensor_read_phases[target_smv] = (
-                                    phase, val_smv)
+                                # Track response-item field writes as sensor
+                                # reads.  A one-segment target is receiver
+                                # state (for example amplifier.executedVoltage),
+                                # not a sensor response snapshot and must not
+                                # receive sensor-synchronisation invariants.
+                                if len(do_stmt.target) > 1:
+                                    self._sensor_read_phases[target_smv] = (
+                                        phase, val_smv)
 
         self._scan_phase_count = phase
 

@@ -122,6 +122,8 @@ class ContinuousControllerPipelineTests(unittest.TestCase):
             source,
             r"INVARSPEC (?:plant|encoder|controller)_\w+ >= 0",
         )
+        self.assertNotIn("scan_phase >= 2 & scan_phase <= 1", source)
+        self.assertNotIn("Sensor amplifier_", source)
 
     def test_state_feedback_uses_the_observation_latched_with_the_command(self):
         with tempfile.TemporaryDirectory(dir=ROOT) as directory:
