@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-runtime-diagnostic-20261005-123047",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "fc642328e6458dea54217bb7c916ad9c9af51785"
+  },
+  "command": "PYTHONPATH=rl python3 - <<'PY'\nimport hashlib, inspect, json\nfrom pathlib import Path\nimport env, requirement_events\nfrom continuous_env import ContinuousSysMLEnv\nmodel=Path(\"sysml-models/hall-sensored-bldc/model.sysml\").resolve()\ndef module_row(module):\n    p=Path(module.__file__).resolve()\n    return {\"module\":module.__name__,\"path\":str(p),\"sha256\":hashlib.sha256(p.read_bytes()).hexdigest()}\nprint(\"RUNTIME_MODULES\")\nprint(json.dumps([module_row(env),module_row(requirement_events)],indent=2,sort_keys=True))\nprint(\"SYSML_ENV_SIGNATURE\",inspect.signature(env.SysMLEnv.__init__))\nprobe=ContinuousSysMLEnv(str(model),dt=0.00005,max_steps=10,phase=1,rng_seed=42)\ntry:\n    parser=probe._twin.parser\n    neural=[a for p in parser.part_defs.values() for a in p.action_defs if \"Neural\" in a.metadata][0]\n    print(\"ENVIRONMENT\")\n    print(json.dumps({\"obs_dim\":probe.obs_dim,\"obs_keys\":getattr(probe,\"_obs_keys\",None),\"completion_key\":getattr(probe,\"_completion_key\",None),\"obs_scale\":getattr(probe,\"_obs_scale\",None),\"scenario_inputs\":getattr(probe,\"_scenario_inputs\",None),\"neural_inputs\":[{\"name\":p.name,\"metadata\":p.metadata} for p in neural.in_params]},indent=2,sort_keys=True))\nfinally:\n    probe.close()\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
