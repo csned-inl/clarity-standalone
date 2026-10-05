@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-training-smoke-2b73-20261005-044515",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "2b73745d2a78af93a265cee0c4def547d8099ffc"
+  },
+  "command": "python3 -m unittest -v tests.test_continuous_training_modes tests.test_continuous_ppo\npython3 continuous_training_experiments.py --output runs/standalone-pendulum-training-smoke-2b73-20261005-044515 --device mps --episodes 4 --episodes-per-update 2 --evaluation-episodes 2 --max-steps 300 --penalty-fraction 0.15",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 4000
+  }
+}
