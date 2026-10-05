@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-middle-full-3fdd-20261005-052547",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "3fdd1cc3a34dbd6adb66eaad791695e6557fdab6"
+  },
+  "command": "python3 continuous_training_experiments.py --output runs/standalone-pendulum-middle-full-3fdd-20261005-052547 --device mps --episodes 20 --episodes-per-update 5 --evaluation-episodes 10 --max-steps 6000 --penalty-cap 1.0 --time-budget 0.10 --override-budget 0.05\npython3 - <<'PY'\nimport json\nfrom pathlib import Path\nr=json.loads(Path(\"runs/standalone-pendulum-middle-full-3fdd-20261005-052547/comparison.json\").read_text())\nprint(\"MIDDLE_FULL_COMPARISON\")\nfor row in r[\"results\"]:\n e=row[\"evaluation\"]\n print(json.dumps({\"mode\":row[\"mode\"],\"successes\":e[\"successes\"],\"episodes\":e[\"episodes\"],\"unsafe_episodes\":e[\"episodes_with_unsafe_execution\"],\"unsafe_steps\":e[\"unsafe_executed_steps\"],\"shield_interventions\":e[\"shield_interventions\"],\"mean_proposal_error\":e[\"mean_absolute_proposal_error\"],\"mean_reward\":e[\"mean_episode_reward\"],\"mean_steps\":e[\"mean_episode_steps\"]},sort_keys=True))\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
