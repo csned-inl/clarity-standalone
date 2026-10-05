@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-range-control-20261005-124943",
+  "resolved_sha": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "stderr_tail": "",
+  "stdout_tail": "RANGE_CONTROL_RESULTS\n{\"outcome\": \"TRUNCATED\", \"steps\": 300, \"success\": false, \"target\": -942.477796076938, \"unsafe\": false}\n{\"outcome\": \"TRUNCATED\", \"steps\": 300, \"success\": false, \"target\": -628.318530717958, \"unsafe\": false}\n{\"outcome\": \"SUCCESS\", \"steps\": 49, \"success\": true, \"target\": -314.159265358979, \"unsafe\": false}\n{\"outcome\": \"SUCCESS\", \"steps\": 1, \"success\": true, \"target\": 0.0, \"unsafe\": false}\n{\"outcome\": \"SUCCESS\", \"steps\": 49, \"success\": true, \"target\": 314.159265358979, \"unsafe\": false}\n{\"outcome\": \"TRUNCATED\", \"steps\": 300, \"success\": false, \"target\": 628.318530717958, \"unsafe\": false}\n{\"outcome\": \"TRUNCATED\", \"steps\": 300, \"success\": false, \"target\": 942.477796076938, \"unsafe\": false}\n",
+  "worker": "macbook"
+}
