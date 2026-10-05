@@ -30,8 +30,10 @@ contract defines a permissive state-dependent safe-action set.
    or model dispatch.
 4. Generate the SMV transition system and assert that the neural output was
    emitted as `real`, not `boolean`.
-5. Run nuXmv before training. A failed or missing proof cannot produce a final
-   controller artifact.
+5. Run each emitted nuXmv invariant as an independent obligation before
+   training. Every obligation has its own SMV file, process timeout,
+   transcript, and verdict. A failed, timed-out, inconclusive, or missing
+   obligation cannot produce a final controller artifact.
 6. Generate reachable oracle-cloning data by running the SysML process with
    the exact symbolic shield.
 7. Train the original-size controller backbone: two 64-wide `tanh` encoder
@@ -97,6 +99,33 @@ Its `training_report.json` states both `requires_runtime_shield: true` and
 - Autonomous continuous PPO optimization inside such a safe set.
 - The GitHub-to-personal-Mac compute-request workflow for this repository.
 - A completed nuXmv proof run for the corrected real-valued SMV model.
+
+## Pendulum verification corrections
+
+The first combined proof attempt exposed two representation defects that are
+now guarded by focused tests:
+
+- Controller sends made directly from an action named `step` must be coupled
+  to the connected receiver. Otherwise the receiver's message availability
+  and payload become unconstrained verification inputs. The extractor now
+  handles direct-send steps without changing the established
+  `step -> named scan action` path.
+- A stored command must be checked against the exact observation used to
+  compute it. The pendulum controller now stores four controller-owned
+  observation fields alongside `lastProposedVoltage`; the state-feedback
+  obligation uses that snapshot instead of newer encoder state.
+
+The staged extraction test also found and removed an unsound auxiliary rule
+that asserted nonnegativity for every real-valued step target. Only integer
+targets that the generated transition relation explicitly clamps to a
+nonnegative range may receive that strengthening invariant.
+
+Formal results are intentionally not aggregated into one nuXmv invocation.
+`formal.py` extracts once and writes one isolated model and transcript per
+`INVARSPEC`. It continues after a timeout or counterexample so a difficult
+balance-envelope obligation cannot hide the voltage or state-feedback
+results. Overall `verified` is true only if every emitted obligation is
+individually proved.
 
 Those are separate increments. In particular, the compute bridge must not be
 used to conceal an unproved formal stage or to label exact feedback cloning as
