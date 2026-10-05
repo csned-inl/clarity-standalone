@@ -8,6 +8,11 @@ This handoff concerns `csned-inl/clarity-standalone` commit
 revision and generated model. They do not certify or refute the intended
 closed-loop SysML design independently of the extractor.
 
+The [diagnostic archive](PENDULUM_FORMAL_VERIFICATION_DIAGNOSTICS_dd9d.tar.gz)
+contains the exact temporary SMV variants, extractor experiment, diffs, and
+nuXmv logs used for the segmented checks below. Its baseline is the pinned
+`dd9d9d6f` revision; the temporary variants are not the later source fixes.
+
 ## Result of the submitted proof jobs
 
 | Job | Worker | Result |
