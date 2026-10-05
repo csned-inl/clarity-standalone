@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-nuxmv-20261005-094816",
+  "resolved_sha": "d30708e71547e3f2d5c5430edbf6a402a6a579b0",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "d30708e71547e3f2d5c5430edbf6a402a6a579b0",
+  "stderr_tail": "",
+  "stdout_tail": "Motor safety verification proved\n{\n  \"nuxmv_verified\": true,\n  \"obligations\": [\n    {\n      \"name\": \"Executed Duty Within Authorized Range\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Invalid Hall State Disables Drive\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Current Limit Surrogate Opposes Further Increase\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Controller Supplies Bounded Duty Proposal\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Valid Hall Commutation Uses Distinct Phases\",\n      \"status\": \"proved\"\n    },\n    {\n      \"name\": \"Auxiliary invariant 6\",\n      \"status\": \"proved\"\n    }\n  ],\n  \"structural_verified\": true,\n  \"verified\": true\n}\n",
+  "worker": "ubuntu-blink"
+}
