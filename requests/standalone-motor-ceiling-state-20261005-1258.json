@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-ceiling-state-20261005-1258",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "5f17a50747ff4b52b87305076338dc27e63c0863"
+  },
+  "command": "PYTHONPATH=rl python3 - <<'PY'\nimport json\nfrom continuous_env import ContinuousSysMLEnv\nfrom hall_motor_shield import HallMotorProjectionShield\nmodel=\"sysml-models/hall-sensored-bldc/model.sysml\";shield=HallMotorProjectionShield(model)\nenv=ContinuousSysMLEnv(model,dt=0.00005,max_steps=3000,phase=2,rng_seed=42,terminate_on_violation=False,violation_penalty=0.0,terminating_metadata=frozenset({\"Prohibition\"}))\nfor q,b in env._scenario_inputs.items():\n if q.endswith(\"targetMechanicalSpeedRadiansPerSecond\"): b[\"lower\"]=942.477796076938;b[\"upper\"]=942.477796076938;b[\"default\"]=942.477796076938\ntry:\n env.reset();done=False\n for step in range(1,3001):\n  x=env.raw_model_inputs;executed,_,_=shield.select(1.0,x);_o,_r,done,info=env.step([executed])\n  if step in (1,50,300,1000,3000) or done:\n   selected={k:v for k,v in info[\"state\"].items() if any(token in k.lower() for token in (\"speed\",\"current\",\"duty\",\"hallcode\"))}\n   print(json.dumps({\"step\":step,\"outcome\":info[\"outcome\"],\"state\":selected},sort_keys=True))\n  if done:break\nfinally:env.close()\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
