@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-final-tests-20261005-1620",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "af626baa6c8cd563e00ac69001f3420ed907a6cf"
+  },
+  "command": "python3 -m unittest tests.test_hall_sensored_bldc_model tests.test_hall_motor_verification tests.test_hall_motor_training tests.test_continuous_training_modes tests.test_continuous_ppo -v",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
