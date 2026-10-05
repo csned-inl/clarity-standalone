@@ -156,3 +156,46 @@ The original combined jobs did **not** prove any of the three properties:
 both expired before nuXmv printed an invariant verdict. The isolated checks
 and recurrence analysis above are separate diagnostics of the same generated
 transition system.
+
+
+## Corrected staged result
+
+The diagnostics above were addressed on
+`codex/pendulum-controller-pipeline` through commit
+`44a28b41224f92454b38b3eae09588cc3ccafb09`.  This section supersedes the
+old revision's disposition; it does not rewrite the historical evidence.
+
+Corrections made:
+
+- direct sends from a controller `step` action are coupled to the connected
+  receiver instead of remaining free verification inputs;
+- duplicate aliases from multiple receiver guard transitions are collapsed;
+- real-valued state is no longer given an unsound blanket nonnegativity
+  strengthening invariant;
+- controller observations are explicitly latched with
+  `lastProposedVoltage`, and the state-feedback requirement uses that exact
+  snapshot;
+- an accepted local item in a controller step is lowered through its connected
+  sender instead of producing undefined `controller_reading_*` names;
+- the amplifier receives the latched `controller_command_volts` value rather
+  than a live policy expression evaluated at a later scan phase;
+- sensor synchronisation invariants are restricted to response-item fields and
+  are not generated for ordinary actuator state; and
+- every emitted invariant is run in a separate nuXmv process with its own
+  model, timeout, transcript, and verdict.  A failure or timeout no longer
+  hides the other results.
+
+Staged evidence for the corrected commit:
+
+| Check | Result |
+| --- | --- |
+| Repository suite, request `standalone-pendulum-tests-44a2-20261005-0202` | 34 tests passed. |
+| Motor-voltage requirement | Independently proved by nuXmv. |
+| Controller state-feedback requirement | Independently proved by nuXmv. |
+| Two frozen target-bound auxiliary invariants | Independently proved by nuXmv. |
+| Balance-envelope requirement, request `standalone-pendulum-envelope-44a2-20261005-0206` | Timed out after 300 seconds at bound 17, with no proof or counterexample. |
+
+The corrected emitted model has exactly five invariant obligations.  Four are
+proved and the envelope obligation is unresolved.  Therefore the aggregate
+verification result is **not proved**, and the pipeline must continue to block
+training.  The timeout must not be reported as either safety or unsafety.

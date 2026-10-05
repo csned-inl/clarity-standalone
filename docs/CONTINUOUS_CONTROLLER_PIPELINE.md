@@ -127,6 +127,13 @@ balance-envelope obligation cannot hide the voltage or state-feedback
 results. Overall `verified` is true only if every emitted obligation is
 individually proved.
 
+At corrected source commit `44a28b41224f92454b38b3eae09588cc3ccafb09`,
+the repository's 34 tests pass.  nuXmv independently proves the motor-voltage
+requirement, the controller state-feedback requirement, and both frozen target
+bound auxiliaries.  The balance-envelope requirement alone reaches bound 17
+and times out after 300 seconds.  It is therefore unresolved, the aggregate
+certificate is false, and controller training remains blocked.
+
 Those are separate increments. In particular, the compute bridge must not be
 used to conceal an unproved formal stage or to label exact feedback cloning as
 autonomous reinforcement learning.
