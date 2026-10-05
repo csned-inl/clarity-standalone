@@ -30,7 +30,6 @@ from hall_motor_shield import HallMotorProjectionShield  # noqa: E402
 
 MODEL = ROOT / "sysml-models" / "hall-sensored-bldc" / "model.sysml"
 DT_SECONDS = 0.00005
-OBSERVATION_SCALE = 314.159265358979
 SHIELDED_MODES = tuple(mode for mode in TRAINING_MODES if mode.use_shield)
 
 
@@ -62,11 +61,12 @@ def main() -> int:
     shield = HallMotorProjectionShield(model_path)
     probe = ContinuousSysMLEnv(
         str(model_path), dt=DT_SECONDS, max_steps=args.max_steps,
-        phase=1, rng_seed=args.seed, observation_scale=OBSERVATION_SCALE)
+        phase=1, rng_seed=args.seed)
     try:
         observation_dimension = probe.obs_dim
         action_dimension = probe.action_dim
         observation_keys = list(probe.observation_keys)
+        observation_scale = getattr(probe, "observation_scale", None)
     finally:
         probe.close()
     if action_dimension != 1:
@@ -99,7 +99,6 @@ def main() -> int:
             time_budget=args.time_budget,
             override_budget=args.override_budget,
             dt=DT_SECONDS,
-            observation_scale=OBSERVATION_SCALE,
         ))
 
     report = {
@@ -116,7 +115,7 @@ def main() -> int:
         "time_penalty_budget": args.time_budget,
         "override_penalty_budget": args.override_budget,
         "action_error_scale": args.action_error_scale,
-        "observation_scale": OBSERVATION_SCALE,
+        "observation_scale": observation_scale,
         "observation_keys": observation_keys,
         "observation_dimension": observation_dimension,
         "action_dimension": action_dimension,

@@ -121,7 +121,7 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
              observation_dimension, action_dimension, device, seed,
              episodes, episodes_per_update, evaluation_episodes, max_steps,
              penalty_cap, action_error_scale, time_budget, override_budget,
-             dt, observation_scale=None):
+             dt):
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
@@ -132,7 +132,6 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
     optimizer = ContinuousRecurrentPPO(policy, device=device)
     environment = ContinuousSysMLEnv(
         str(model_path), dt=dt, max_steps=max_steps, phase=2, rng_seed=seed,
-        observation_scale=observation_scale,
         terminate_on_violation=mode.terminate_on_prohibition,
         violation_penalty=0.0,
         terminating_metadata=frozenset({"Prohibition"}))
@@ -168,7 +167,6 @@ def run_mode(model_path, out_dir, initial_state, mode, *, shield,
     evaluation_environment = ContinuousSysMLEnv(
         str(model_path), dt=dt, max_steps=max_steps, phase=2,
         rng_seed=seed + 10_000,
-        observation_scale=observation_scale,
         terminate_on_violation=mode.terminate_on_prohibition,
         violation_penalty=0.0,
         terminating_metadata=frozenset({"Prohibition"}))

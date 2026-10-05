@@ -19,13 +19,11 @@ class ContinuousSysMLEnv(SysMLEnv):
     def __init__(self, model_path: str, dt: float = 0.1,
                  max_steps: int = 1200, phase: int = 1,
                  rng_seed: int | None = None, *,
-                 observation_scale: float | None = None,
                  terminate_on_violation: bool = True,
                  violation_penalty: float = 1.0,
                  terminating_metadata: frozenset[str] | None = None):
         super().__init__(model_path, dt=dt, max_steps=max_steps,
-                         phase=phase, rng_seed=rng_seed,
-                         observation_scale=observation_scale)
+                         phase=phase, rng_seed=rng_seed)
         if (not math.isfinite(violation_penalty)
                 or violation_penalty < 0.0):
             raise ValueError("violation_penalty must be finite and nonnegative")
