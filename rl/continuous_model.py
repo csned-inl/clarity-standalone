@@ -75,6 +75,78 @@ class ContinuousRecurrentActorCritic(nn.Module):
         return self._distribution(means), values
 
 
+class BoundedMeanContinuousRecurrentActorCritic(
+        ContinuousRecurrentActorCritic):
+    """Gaussian actor whose learned mean stays in an actuator-useful range.
+
+    Samples remain genuine Gaussian samples and retain exact log
+    probabilities; this does not perform incorrect post-sampling clipping.
+    A low standard deviation is used separately by the experiment driver.
+    """
+
+    def __init__(self, *args, action_limit: float = 10.0, **kwargs):
+        if action_limit <= 0.0:
+            raise ValueError("action_limit must be positive")
+        self.action_limit = float(action_limit)
+        super().__init__(*args, **kwargs)
+
+    def _distribution(self, mean: torch.Tensor):
+        bounded_mean = self.action_limit * torch.tanh(
+            mean / self.action_limit)
+        log_std = self.action_log_std.clamp(-5.0, 2.0)
+        std = log_std.exp().expand_as(bounded_mean)
+        return Independent(Normal(bounded_mean, std), 1)
+
+
+class ContinuousFeedForwardActorCritic(nn.Module):
+    """Non-recurrent control candidate with the recurrent API surface.
+
+    The unused hidden value keeps environment rollout and PPO machinery
+    identical between the GRU and ablation candidates.  No information is
+    carried from one control step to the next.
+    """
+
+    def __init__(self, obs_dim: int, action_dim: int = 1,
+                 hidden_dim: int = 64):
+        super().__init__()
+        if obs_dim <= 0 or action_dim <= 0:
+            raise ValueError("observation and action dimensions must be positive")
+        self.action_dim = action_dim
+        self.encoder = nn.Sequential(
+            nn.Linear(obs_dim, hidden_dim),
+            nn.Tanh(),
+            nn.Linear(hidden_dim, hidden_dim),
+            nn.Tanh(),
+        )
+        self.action_mean_head = nn.Linear(hidden_dim, action_dim)
+        self.action_log_std = nn.Parameter(torch.zeros(action_dim))
+        self.value_head = nn.Linear(hidden_dim, 1)
+
+    def initial_hidden(self, batch_size: int = 1) -> torch.Tensor:
+        return torch.zeros(1, batch_size, 1)
+
+    def _distribution(self, mean: torch.Tensor):
+        log_std = self.action_log_std.clamp(-5.0, 2.0)
+        std = log_std.exp().expand_as(mean)
+        return Independent(Normal(mean, std), 1)
+
+    def forward(self, obs: torch.Tensor, hidden: torch.Tensor):
+        del hidden
+        features = self.encoder(obs)
+        mean = self.action_mean_head(features)
+        value = self.value_head(features)
+        unused = self.initial_hidden(obs.shape[0]).to(obs.device)
+        return self._distribution(mean), value, unused
+
+    def forward_sequence(self, obs_sequence: torch.Tensor,
+                         hidden: torch.Tensor, mask: torch.Tensor | None = None):
+        del hidden, mask
+        features = self.encoder(obs_sequence)
+        means = self.action_mean_head(features)
+        values = self.value_head(features)
+        return self._distribution(means), values
+
+
 def select_torch_device(requested: str = "auto") -> torch.device:
     """Select CUDA, Apple MPS, or CPU without silently skipping MPS."""
     if requested != "auto":
