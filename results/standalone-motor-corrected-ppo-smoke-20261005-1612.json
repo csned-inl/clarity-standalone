@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 1,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-corrected-ppo-smoke-20261005-1612",
+  "resolved_sha": "e19e9688d034be9a695d0c7fddb0f3377acc09ba",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "e19e9688d034be9a695d0c7fddb0f3377acc09ba",
+  "stderr_tail": "Traceback (most recent call last):\n  File \"/Users/csned/clarity-jobs/5c418a1a3f0fa17fbfc73a4d/hall_motor_training.py\", line 158, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/csned/clarity-jobs/5c418a1a3f0fa17fbfc73a4d/hall_motor_training.py\", line 105, in main\n    results.append(run_mode(\n                   ~~~~~~~~^\n        model_path, args.output / mode.name, initial_state, mode,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<17 lines>...\n        ),\n        ^^\n    ))\n    ^\n  File \"/Users/csned/clarity-jobs/5c418a1a3f0fa17fbfc73a4d/continuous_training_experiments.py\", line 162, in run_mode\n    trajectory, stats = _episode(\n                        ~~~~~~~~^\n        environment, policy, shield, mode, device, greedy=False,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n        override_budget=override_budget,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        executed_action_state_key=executed_action_state_key)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/csned/clarity-jobs/5c418a1a3f0fa17fbfc73a4d/continuous_training_experiments.py\", line 83, in _episode\n    raise RuntimeError(\n    ...<2 lines>...\n    )\nRuntimeError: executed action is absent from simulator state: system::drive::executedSignedDutyFraction\n",
+  "stdout_tail": "",
+  "worker": "macbook"
+}
