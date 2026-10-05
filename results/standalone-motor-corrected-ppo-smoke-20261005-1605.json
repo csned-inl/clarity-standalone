@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 1,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-corrected-ppo-smoke-20261005-1605",
+  "resolved_sha": "416531d31ad261de9b880b2ab2a6995337436bbb",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "416531d31ad261de9b880b2ab2a6995337436bbb",
+  "stderr_tail": "Traceback (most recent call last):\n  File \"/Users/csned/clarity-jobs/aaada05b98228c5776724aae/hall_motor_training.py\", line 158, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/csned/clarity-jobs/aaada05b98228c5776724aae/hall_motor_training.py\", line 105, in main\n    results.append(run_mode(\n                   ~~~~~~~~^\n        model_path, args.output / mode.name, initial_state, mode,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<17 lines>...\n        ),\n        ^^\n    ))\n    ^\n  File \"/Users/csned/clarity-jobs/aaada05b98228c5776724aae/continuous_training_experiments.py\", line 162, in run_mode\n    trajectory, stats = _episode(\n                        ~~~~~~~~^\n        environment, policy, shield, mode, device, greedy=False,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n    ...<4 lines>...\n        override_budget=override_budget,\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n        executed_action_state_key=executed_action_state_key)\n        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^\n  File \"/Users/csned/clarity-jobs/aaada05b98228c5776724aae/continuous_training_experiments.py\", line 44, in _episode\n    observation = env.reset()\n  File \"/Users/csned/clarity-jobs/aaada05b98228c5776724aae/rl/env.py\", line 180, in reset\n    raise ResetUnavailable(result)\nrequirement_events.ResetUnavailable: reset ended with violation\n",
+  "stdout_tail": "",
+  "worker": "macbook"
+}
