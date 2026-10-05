@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math
 import numpy as np
 
 from env import SysMLEnv
@@ -17,9 +18,16 @@ class ContinuousSysMLEnv(SysMLEnv):
 
     def __init__(self, model_path: str, dt: float = 0.1,
                  max_steps: int = 1200, phase: int = 1,
-                 rng_seed: int | None = None):
+                 rng_seed: int | None = None, *,
+                 terminate_on_violation: bool = True,
+                 violation_penalty: float = 1.0):
         super().__init__(model_path, dt=dt, max_steps=max_steps,
                          phase=phase, rng_seed=rng_seed)
+        if (not math.isfinite(violation_penalty)
+                or violation_penalty < 0.0):
+            raise ValueError("violation_penalty must be finite and nonnegative")
+        self.terminate_on_violation = bool(terminate_on_violation)
+        self.violation_penalty = float(violation_penalty)
         if not self._out_params:
             raise ValueError("model has no #Neural outputs")
         unsupported = [(name, type_name) for name, type_name in self._out_params
@@ -49,11 +57,19 @@ class ContinuousSysMLEnv(SysMLEnv):
         statuses = summarize_events(result.events)
         errors = {name: row["errors"] for name, row in statuses.items()
                   if row["errors"]}
+        violated = self.phase == 2 and any(
+            row["status"] is False for row in statuses.values())
         if errors or result.error:
             reward, done, outcome = 0.0, True, "ERROR"
-        elif self.phase == 2 and any(
-                row["status"] is False for row in statuses.values()):
-            reward, done, outcome = -1.0, True, "VIOLATION"
+        elif violated:
+            reward = -self.violation_penalty
+            done = self.terminate_on_violation or result.outcome == "terminal"
+            if self.terminate_on_violation:
+                outcome = "VIOLATION"
+            elif result.outcome == "terminal":
+                outcome = "TERMINAL_VIOLATION"
+            else:
+                outcome = "RUNNING_VIOLATION"
         elif result.outcome == "terminal":
             reward, done, outcome = 1.0, True, "SUCCESS"
         else:
@@ -71,6 +87,7 @@ class ContinuousSysMLEnv(SysMLEnv):
             "evaluation_errors": errors,
             "outcome": outcome,
             "truncated": truncated,
+            "unsafe_executed": violated,
             "executed_neural_outputs": actuators,
         }
         observation = (None if result.state is None
