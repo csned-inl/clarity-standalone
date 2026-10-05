@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 1,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-training-smoke-20261005-101544",
+  "resolved_sha": "cad50c9deac83a1005347b8935f5101693c98193",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "cad50c9deac83a1005347b8935f5101693c98193",
+  "stderr_tail": "test_invalid_hall_forces_zero_without_terminating_training (tests.test_hall_motor_training.HallMotorTrainingTests.test_invalid_hall_forces_zero_without_terminating_training) ... ok\ntest_report_identifies_projection_not_unique_action (tests.test_hall_motor_training.HallMotorTrainingTests.test_report_identifies_projection_not_unique_action) ... ok\ntest_valid_hall_proposals_are_clipped_to_contract (tests.test_hall_motor_training.HallMotorTrainingTests.test_valid_hall_proposals_are_clipped_to_contract) ... ok\n\n----------------------------------------------------------------------\nRan 3 tests in 0.002s\n\nOK\nTraceback (most recent call last):\n  File \"/Users/csned/clarity-jobs/b951a77f3c7aac8afaf78f78/hall_motor_training.py\", line 134, in <module>\n    raise SystemExit(main())\n                     ~~~~^^\n  File \"/Users/csned/clarity-jobs/b951a77f3c7aac8afaf78f78/hall_motor_training.py\", line 68, in main\n    observation_keys = list(probe.observation_keys)\n                            ^^^^^^^^^^^^^^^^^^^^^^\nAttributeError: 'ContinuousSysMLEnv' object has no attribute 'observation_keys'\n",
+  "stdout_tail": "",
+  "worker": "macbook"
+}
