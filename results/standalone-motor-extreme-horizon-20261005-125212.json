@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-motor-extreme-horizon-20261005-125212",
+  "resolved_sha": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "5f17a50747ff4b52b87305076338dc27e63c0863",
+  "stderr_tail": "",
+  "stdout_tail": "{\"last_speed\": -510.82807375463403, \"outcome\": \"TRUNCATED\", \"steps\": 3000, \"success\": false, \"target\": -942.477796076938, \"unsafe\": false}\n{\"last_speed\": -510.82807375463403, \"outcome\": \"TRUNCATED\", \"steps\": 3000, \"success\": false, \"target\": -628.318530717958, \"unsafe\": false}\n{\"last_speed\": 510.82807375463403, \"outcome\": \"TRUNCATED\", \"steps\": 3000, \"success\": false, \"target\": 628.318530717958, \"unsafe\": false}\n{\"last_speed\": 510.82807375463403, \"outcome\": \"TRUNCATED\", \"steps\": 3000, \"success\": false, \"target\": 942.477796076938, \"unsafe\": false}\n",
+  "worker": "macbook"
+}
