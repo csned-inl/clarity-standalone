@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-corrected-ppo-smoke-20261005-1605",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "416531d31ad261de9b880b2ab2a6995337436bbb"
+  },
+  "command": "python3 hall_motor_training.py --output runs/standalone-motor-corrected-ppo-smoke-20261005-1605 --device mps --episodes 10 --episodes-per-update 5 --evaluation-episodes 5 --max-steps 3000 --seed 42 && python3 - <<'PY'\nimport json\nfrom pathlib import Path\nr=json.loads(Path('runs/standalone-motor-corrected-ppo-smoke-20261005-1605/comparison.json').read_text())\nprint('CORRECTED_MOTOR_PPO_SMOKE')\nprint(json.dumps({'observation_keys':r['observation_keys'],'observation_dimension':r['observation_dimension'],'observation_scale':r['observation_scale'],'preflight_proved':r['structural_safety_preflight']['proved']},sort_keys=True))\nfor row in r['results']:\n print(json.dumps({'mode':row['mode'],'training':row['training'],'evaluation':row['evaluation']},sort_keys=True))\nif len(r['results']) != 2 or not r['structural_safety_preflight']['proved'] or r['observation_dimension'] != 4 or any(x['evaluation']['unsafe_executed_steps'] != 0 for x in r['results']):\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
