@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-improvement-full-d230-20261005-0633",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "d23046cae656183dd8fda94a3534cfc0be37ec07"
+  },
+  "command": "python3 -m unittest discover -s tests -v\npython3 continuous_improvement_experiments.py --output runs/standalone-pendulum-improvement-full-d230-20261005-0633 --device mps --oracle-samples 3000 --clone-epochs 30 --ppo-episodes 20 --evaluation-episodes 10 --max-steps 6000",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
