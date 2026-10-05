@@ -1,0 +1,12 @@
+{
+  "coordinator": "ubuntu-blink",
+  "exit_code": 0,
+  "repository": "csned-inl/clarity-standalone",
+  "request_id": "standalone-pendulum-hybrid-proof-d3d7-20261005-035712",
+  "resolved_sha": "d3d72e0dc3f1d522384bce5c13f16f034122d5d9",
+  "schema": "clarity.compute.result.v1",
+  "source_commit": "d3d72e0dc3f1d522384bce5c13f16f034122d5d9",
+  "stderr_tail": "",
+  "stdout_tail": "Prepared continuous pipeline inputs: /home/github-runner/clarity-jobs/b621b983ee4db237a366df83/runs/standalone-pendulum-hybrid-proof-d3d7-20261005-035712\n{\n  \"method\": \"hybrid-isolated-ic3-and-direct-certificate\",\n  \"obligations\": [\n    {\n      \"method\": \"nuXmv\",\n      \"name\": \"Motor Voltage Within Authorized Range\",\n      \"status\": \"proved\"\n    },\n    {\n      \"method\": \"direct-analytical-certificate\",\n      \"name\": \"Stay Within Balance Controller Envelope\",\n      \"status\": \"proved\"\n    },\n    {\n      \"method\": \"nuXmv\",\n      \"name\": \"Controller Supplies State Feedback\",\n      \"status\": \"proved\"\n    },\n    {\n      \"method\": \"nuXmv\",\n      \"name\": \"Auxiliary invariant 4\",\n      \"status\": \"proved\"\n    },\n    {\n      \"method\": \"nuXmv\",\n      \"name\": \"Auxiliary invariant 5\",\n      \"status\": \"proved\"\n    }\n  ],\n  \"verified\": true\n}\n",
+  "worker": "ubuntu-blink"
+}
