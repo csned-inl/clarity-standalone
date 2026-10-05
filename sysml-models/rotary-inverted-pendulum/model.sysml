@@ -231,6 +231,13 @@ package RotaryInvertedPendulum {
         attribute pendulumAngularVelocityGain : Real;
 
         attribute lastProposedVoltage : Real;
+        // Snapshot of the exact observation used to compute
+        // lastProposedVoltage.  These are controller-owned history, distinct
+        // from the encoder's current sample.
+        attribute lastObservedArmAngleRadians : Real;
+        attribute lastObservedPendulumAngleFromUprightRadians : Real;
+        attribute lastObservedArmAngularVelocityRadiansPerSecond : Real;
+        attribute lastObservedPendulumAngularVelocityRadiansPerSecond : Real;
 
         port sensorPort : PendulumSensorPort;
         port proposalPort : ~MotorVoltageCommandPort;
@@ -300,6 +307,13 @@ package RotaryInvertedPendulum {
                         completionAngularVelocityToleranceRadiansPerSecond;
             }
 
+            assign lastObservedArmAngleRadians := reading.armAngleRadians;
+            assign lastObservedPendulumAngleFromUprightRadians :=
+                reading.pendulumAngleFromUprightRadians;
+            assign lastObservedArmAngularVelocityRadiansPerSecond :=
+                reading.estimatedArmAngularVelocityRadiansPerSecond;
+            assign lastObservedPendulumAngularVelocityRadiansPerSecond :=
+                reading.estimatedPendulumAngularVelocityRadiansPerSecond;
             assign lastProposedVoltage := policyCall.proposedMotorVoltage;
             item command : MotorVoltageCommand;
             assign command.volts := policyCall.proposedMotorVoltage;
@@ -360,14 +374,14 @@ package RotaryInvertedPendulum {
                     implies s.controller.lastProposedVoltage ==
                         0.0 -
                         (s.controller.armAngleGain *
-                            (s.encoder.sampledArmAngleRadians -
+                            (s.controller.lastObservedArmAngleRadians -
                              s.controller.targetArmAngleRadians) +
                          s.controller.pendulumAngleGain *
-                            s.encoder.sampledPendulumAngleFromUprightRadians +
+                            s.controller.lastObservedPendulumAngleFromUprightRadians +
                          s.controller.armAngularVelocityGain *
-                            s.encoder.estimatedArmAngularVelocityRadiansPerSecond +
+                            s.controller.lastObservedArmAngularVelocityRadiansPerSecond +
                          s.controller.pendulumAngularVelocityGain *
-                            s.encoder.estimatedPendulumAngularVelocityRadiansPerSecond)
+                            s.controller.lastObservedPendulumAngularVelocityRadiansPerSecond)
             }
         }
     }
@@ -419,6 +433,10 @@ package RotaryInvertedPendulum {
             attribute :>> armAngularVelocityGain = -2.2650;
             attribute :>> pendulumAngularVelocityGain = 4.3458;
             attribute :>> lastProposedVoltage = 0.0;
+            attribute :>> lastObservedArmAngleRadians = 0.0;
+            attribute :>> lastObservedPendulumAngleFromUprightRadians = 0.0;
+            attribute :>> lastObservedArmAngularVelocityRadiansPerSecond = 0.0;
+            attribute :>> lastObservedPendulumAngularVelocityRadiansPerSecond = 0.0;
         }
 
         #ScenarioConstraint constraint scenarioConstraints {

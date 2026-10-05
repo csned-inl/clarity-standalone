@@ -874,9 +874,28 @@ class SMVGenerator:
         accept_map: dict[str, tuple[str, str]] = {}
         self._accept_map = accept_map
 
-        # Find actions referenced by PerformStmt in non-step actions —
-        # skip these since they'll be inlined via the flattener.
-        # (step is excluded because it's the entry point that calls ScanCycle)
+        # A controller may either send directly from its step action (as the
+        # cruise and pendulum controllers do) or have step dispatch a named
+        # scan action (as the mixing controller does).  Direct step sends must
+        # be processed here; otherwise connected receiver inputs remain free
+        # IVARs and the generated transition system is not the SysML system.
+        step_action = next(
+            (action for action in ctrl_def.actions if action.name == 'step'),
+            None)
+        if (step_action is not None and
+                self._contains_direct_send(step_action.body)):
+            # A direct-send step without a scan guard executes every cycle.
+            # If Phase 2 found a genuine scan guard it already supplied the
+            # more precise definition.
+            self._defines.setdefault('scan_fires', 'TRUE')
+            self._phase3d_process_action(
+                step_action, ctrl_fqn, ctrl_name, rev_connect, accept_map,
+                ctrl_def, step_action=True)
+            return
+
+        # Find actions referenced by PerformStmt in non-step actions — skip
+        # these since they'll be inlined via the flattener.  The remaining
+        # path is the established step -> named scan-action representation.
         performed_names: set[str] = set()
         for action in ctrl_def.actions:
             if action.name == 'step':
@@ -890,6 +909,23 @@ class SMVGenerator:
                 continue
             self._phase3d_process_action(
                 action, ctrl_fqn, ctrl_name, rev_connect, accept_map, ctrl_def)
+
+    @staticmethod
+    def _contains_direct_send(stmts: list) -> bool:
+        """Return whether this body itself contains a send.
+
+        PerformStmt targets are intentionally not followed: a step that only
+        performs a named scan action stays on the established scan-action
+        path and is not encoded twice.
+        """
+        for stmt in stmts:
+            if isinstance(stmt, SendStmt):
+                return True
+            if isinstance(stmt, IfStmt):
+                if (SMVGenerator._contains_direct_send(stmt.body) or
+                        SMVGenerator._contains_direct_send(stmt.else_body)):
+                    return True
+        return False
 
     @staticmethod
     def _collect_performed_names(stmt, names: set):
@@ -932,7 +968,8 @@ class SMVGenerator:
 
     def _phase3d_process_action(self, action: Action, ctrl_fqn: str,
                                  ctrl_name: str, rev_connect: dict,
-                                 accept_map: dict, ctrl_def: PartDef):
+                                 accept_map: dict, ctrl_def: PartDef,
+                                 *, step_action: bool = False):
         """Process a single controller action body for Phase 3d coupling.
 
         Recursively flattens PerformStmt (sub-action calls) and IfStmt/else
@@ -974,6 +1011,7 @@ class SMVGenerator:
         trigger_phases: dict[str, list[tuple[int, Optional[Expr]]]] = {}
         # (send_stmt, recv_fqn, trigger_var, phase, condition, assigns_snapshot)
         send_to_recv: list[tuple[SendStmt, str, str, int, Optional[Expr], dict]] = []
+        send_to_recv_keys: set[tuple[int, str, str, int, int | None]] = set()
 
         for stmt, cond in flat_stmts:
             # Accumulate assigns as we go
@@ -983,7 +1021,8 @@ class SMVGenerator:
             # Single-target assigns to controller attributes → DEFINE alias.
             # E.g. "assign observedLevel := sensorRes.response" becomes
             # controller_observedLevel := volumeSensor_rsp_response.
-            if isinstance(stmt, AssignStmt) and len(stmt.target) == 1:
+            if (isinstance(stmt, AssignStmt) and len(stmt.target) == 1 and
+                    not step_action):
                 attr = stmt.target[0]
                 smv_target = self._smv(ctrl_fqn + "::" + attr)
                 smv_val = self._to_smv_with_accept_map(
@@ -1025,12 +1064,19 @@ class SMVGenerator:
 
                 ivar_name = self._trigger_ivar_name(
                     recv_fqn, trans.trigger_port, trans.trigger)
-                trigger_phases.setdefault(ivar_name, []).append((phase, cond))
+                phase_entry = (phase, cond)
+                if phase_entry not in trigger_phases.setdefault(ivar_name, []):
+                    trigger_phases[ivar_name].append(phase_entry)
 
                 if trans.trigger_var:
-                    send_to_recv.append(
-                        (stmt, recv_fqn, trans.trigger_var, phase, cond,
-                         dict(item_assigns)))
+                    send_key = (
+                        id(stmt), recv_fqn, trans.trigger_var, phase,
+                        id(cond) if cond is not None else None)
+                    if send_key not in send_to_recv_keys:
+                        send_to_recv_keys.add(send_key)
+                        send_to_recv.append(
+                            (stmt, recv_fqn, trans.trigger_var, phase, cond,
+                             dict(item_assigns)))
 
                 # Record phase effects for strengthening invariants.
                 cond_smv = (self._to_smv_with_accept_map(cond, ctrl_fqn, accept_map)
@@ -1657,7 +1703,11 @@ class SMVGenerator:
                 f"scan_phase <= {max_phase}) -> "
                 f"({sensor_smv} = {tank_var})")
 
-        # 2. Non-negativity of step-action (Euler-integrated) targets.
+        # 2. Non-negativity of integer step-action targets.  Integer targets
+        #    are explicitly clamped to [0, capacity] by _gen_assigns, so this
+        #    is a consequence of the emitted transition relation.  Real-valued
+        #    targets (angles, rates, temperatures, etc.) have no such lower
+        #    bound and must never receive this strengthening invariant.
         #    Skip variables monitored by a sensor — their non-negativity is
         #    not self-inductive for real-valued vars; H5 + bridge handle them.
         sensor_monitored_vars = set()
@@ -1667,6 +1717,8 @@ class SMVGenerator:
                 sensor_monitored_vars.add(resolved)
         for sa in self._step_actions:
             smv_n = self._smv(sa.target_key)
+            if self._needs_real(sa.target_key) or self._is_boolean(sa.target_key):
+                continue
             if smv_n in sensor_monitored_vars:
                 continue
             lines.append(f"INVARSPEC {smv_n} >= 0")

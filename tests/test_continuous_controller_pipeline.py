@@ -82,7 +82,60 @@ class ContinuousControllerPipelineTests(unittest.TestCase):
             "controller_policyCall_proposedMotorVoltage : real;", source)
         self.assertNotIn(
             "controller_policyCall_proposedMotorVoltage : boolean;", source)
-        self.assertEqual(source.count("INVARSPEC"), 3)
+        self.assertEqual(source.count("-- Requirement:"), 3)
+
+    def test_smv_couples_controller_command_to_amplifier(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            smv = Path(directory) / "model.smv"
+            subprocess.run(
+                [sys.executable, str(EXTRACTOR), str(MODEL),
+                 "--dt", "0.001", "-o", str(smv)],
+                cwd=ROOT, check=True, capture_output=True, text=True)
+            source = smv.read_text()
+
+        ivar_block = source.split("IVAR", 1)[1].split("DEFINE", 1)[0]
+        self.assertNotIn(
+            "amplifier_proposalPort_MotorVoltageCommand_available", ivar_block)
+        self.assertNotIn("amplifier_proposal_volts", ivar_block)
+        self.assertIn(
+            "amplifier_proposalPort_MotorVoltageCommand_available := "
+            "(scan_phase = 1);",
+            source,
+        )
+        self.assertIn(
+            "amplifier_proposal_volts := "
+            "controller_policyCall_proposedMotorVoltage;",
+            source,
+        )
+        self.assertEqual(source.count("controller_lastProposedVoltage : real;"), 1)
+        self.assertNotIn("controller_lastProposedVoltage :=", source)
+        self.assertNotRegex(
+            source,
+            r"INVARSPEC (?:plant|encoder|controller)_\w+ >= 0",
+        )
+
+    def test_state_feedback_uses_the_observation_latched_with_the_command(self):
+        with tempfile.TemporaryDirectory(dir=ROOT) as directory:
+            smv = Path(directory) / "model.smv"
+            subprocess.run(
+                [sys.executable, str(EXTRACTOR), str(MODEL),
+                 "--dt", "0.001", "-o", str(smv)],
+                cwd=ROOT, check=True, capture_output=True, text=True)
+            source = smv.read_text()
+
+        property_text = source.split(
+            "-- Requirement: Controller Supplies State Feedback", 1
+        )[1].split("-- TODO:", 1)[0]
+        for name in (
+            "controller_lastObservedArmAngleRadians",
+            "controller_lastObservedPendulumAngleFromUprightRadians",
+            "controller_lastObservedArmAngularVelocityRadiansPerSecond",
+            "controller_lastObservedPendulumAngularVelocityRadiansPerSecond",
+        ):
+            self.assertIn(name, property_text)
+            self.assertIn(f"next({name})", source)
+        self.assertNotIn("encoder_sampled", property_text)
+        self.assertNotIn("encoder_estimated", property_text)
 
 
 if __name__ == "__main__":
