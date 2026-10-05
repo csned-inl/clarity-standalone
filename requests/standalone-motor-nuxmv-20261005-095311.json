@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-motor-nuxmv-20261005-095311",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "e4b66e8eff7019bd2931f2c9f7f96fb4a26304b4"
+  },
+  "command": "test -x \"$HOME/tools/nuxmv/2.2.0/nuxmv-2.2.0.sh\" && python3 hall_motor_verification.py --output runs/standalone-motor-nuxmv-20261005-095311 --nuxmv \"$HOME/tools/nuxmv/2.2.0/nuxmv-2.2.0.sh\" --timeout 120 && python3 - <<'PY'\nimport json\nfrom pathlib import Path\nr=json.loads(Path(\"runs/standalone-motor-nuxmv-20261005-095311/verification.json\").read_text())\nprint(json.dumps({\"verified\":r[\"verified\"],\"structural_verified\":r[\"structural_verified\"],\"nuxmv_verified\":r[\"nuxmv_verified\"],\"obligations\":[{\"name\":o[\"name\"],\"status\":o[\"status\"]} for o in r[\"nuxmv\"][\"obligations\"]]},indent=2,sort_keys=True))\nif not r[\"verified\"] or len(r[\"nuxmv\"][\"obligations\"]) != 6:\n    raise SystemExit(1)\nPY",
+  "resources": {
+    "worker": "ubuntu-blink",
+    "operating_system": "linux",
+    "architecture": "x86_64",
+    "min_cpus": 2,
+    "min_memory_mb": 4000
+  }
+}
