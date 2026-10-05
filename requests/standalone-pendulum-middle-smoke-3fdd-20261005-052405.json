@@ -1,0 +1,15 @@
+{
+  "request_id": "standalone-pendulum-middle-smoke-3fdd-20261005-052405",
+  "inputs": {
+    "repository": "csned-inl/clarity-standalone",
+    "commit": "3fdd1cc3a34dbd6adb66eaad791695e6557fdab6"
+  },
+  "command": "python3 continuous_training_experiments.py --output runs/standalone-pendulum-middle-smoke-3fdd-20261005-052405 --device mps --episodes 4 --episodes-per-update 2 --evaluation-episodes 2 --max-steps 1000 --penalty-cap 1.0 --time-budget 0.10 --override-budget 0.05",
+  "resources": {
+    "worker": "macbook",
+    "operating_system": "macos",
+    "architecture": "arm64",
+    "min_cpus": 4,
+    "min_memory_mb": 8000
+  }
+}
