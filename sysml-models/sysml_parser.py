@@ -1077,7 +1077,7 @@ class SysMLParser:
 
         found_fqns: set[str] = {p.qualified_name for p in self.parameters}
 
-        def _add_param(part_name: str, attr_name: str, attr_value: float,
+        def _add_param(part_name: str, attr_name: str, attr_value: Any,
                        metadata: Optional[list[str]] = None) -> None:
             fqn = f"{self.system_part}::{part_name}::{attr_name}"
             if fqn in found_fqns:
@@ -1095,7 +1095,17 @@ class SysMLParser:
             if inst_fqn in self.part_instances:
                 self.part_instances[inst_fqn].attributes[attr_name] = attr_value
 
-        attr_pattern = r'(?:#(\w+)\s+)?attribute\s+:>>\s*(\w+)\s*=\s*(-?[\d.]+)\s*;'
+        attr_pattern = (
+            r'(?:#(\w+)\s+)?attribute\s+:>>\s*(\w+)\s*=\s*'
+            r'(-?[\d.]+|true|false)\s*;'
+        )
+
+        def _literal(text: str):
+            if text == 'true':
+                return True
+            if text == 'false':
+                return False
+            return float(text)
 
         # 1. System instantiation block: part system : Type { ... }
         sys_inst_pattern = rf'\bpart\s+{re.escape(self.system_part)}\s*:\s*\w+\s*\{{'
@@ -1108,7 +1118,7 @@ class SysMLParser:
                 for attr_match in re.finditer(attr_pattern, sub_body):
                     meta = [attr_match.group(1)] if attr_match.group(1) else []
                     _add_param(sub_match.group(1), attr_match.group(2),
-                               float(attr_match.group(3)), meta)
+                               _literal(attr_match.group(3)), meta)
 
             # Parse constraints at the top level of the system instantiation block.
             constraint_pattern = r'(?:#(\w+)\s+)?constraint\s+(\w+)\s*\{\s*([^}]+)\s*\}'
@@ -1146,7 +1156,7 @@ class SysMLParser:
                 for attr_match in re.finditer(attr_pattern, inst_body):
                     meta = [attr_match.group(1)] if attr_match.group(1) else []
                     _add_param(inst_name, attr_match.group(2),
-                               float(attr_match.group(3)), meta)
+                               _literal(attr_match.group(3)), meta)
 
     def _find_controller(self) -> None:
         """Find the part instance that owns the file's #Neural action."""

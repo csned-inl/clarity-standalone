@@ -7,7 +7,12 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tmp_validation"))
+VALIDATION_RUNTIME = (
+    ROOT / "tmp_validation"
+    if (ROOT / "tmp_validation" / "simulator.py").exists()
+    else ROOT / "sysml-models"
+)
+sys.path.insert(0, str(VALIDATION_RUNTIME))
 
 from simulator import ExpressionEvaluator, SimulationEngine  # noqa: E402
 from sysml_parser import SysMLParser  # noqa: E402
@@ -45,6 +50,18 @@ class HallSensoredBldcModelTests(unittest.TestCase):
         self.assertEqual(
             {transition.name for transition in transitions},
             {"above_duty_limit", "below_duty_limit", "inside_duty_limit"},
+        )
+
+    def test_boolean_instance_initializers_are_not_silently_discarded(self):
+        values = {
+            parameter.qualified_name: parameter.value
+            for parameter in self.parser.parameters
+        }
+        self.assertIs(values["system::drive::currentSafetyFeasible"], True)
+        self.assertIs(values["system::sensor::hallA"], True)
+        self.assertIs(values["system::drive::hallFault"], False)
+        self.assertIs(
+            self.engine.state["system::drive::currentSafetyFeasible"], True
         )
 
     def test_exact_motor_and_bench_values_are_not_blended(self):
