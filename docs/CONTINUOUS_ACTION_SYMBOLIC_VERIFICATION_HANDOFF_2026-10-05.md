@@ -13,7 +13,7 @@ The replacement 500-episode motor request remains pending at the time of this re
 
 ## BLOCKING FAILURE — CONTINUOUS MODELS ARE QUARANTINED
 
-**Do not present, publish, demonstrate, extend, train, or make verification claims from either continuous-action model until a complete timing audit and repair has been performed.** This applies to both the Hall-sensored BLDC motor and the rotary inverted pendulum. The motor is known broken with respect to timing configuration and execution cost; the pendulum must be presumed affected until independently audited because it shares the same simulator/training architecture and duplicated timing controls.
+**Do not present, publish, demonstrate, extend, train, or make verification claims from either continuous-action model until a complete timing audit and repair has been performed.** The rotary inverted pendulum requires an independent timing audit.
 
 This is not a request for a compiler, transition-kernel compiler, simulator replacement, or other architectural expansion. The immediate defect is much simpler: timing that should have been controlled by one propagated parameter was independently hardcoded across the SysML, simulator adapter, trainer, proof metadata, and runner request. The previous agent is explicitly **not authorized to implement the repair**. The next session must diagnose and propose the smallest correction, obtain user approval, and only then modify source.
 
@@ -35,7 +35,6 @@ The broader verification rule is:
 
 | Repository | Branch / revision | Authority and role |
 | --- | --- | --- |
-| `csned-inl/clarity-standalone` | `codex/hall-sensored-bldc-model`; motor training source `429e7d87efe21164836ec93eebca344122fd5e4f` | Authoritative reviewed SysML models for this work; continuous-action extraction, verification, training, and runner experiments |
 | `csned-inl/clarity-standalone` | `compute-requests` | Asynchronous personal-runner requests |
 | `csned-inl/clarity-standalone` | `compute-results` | Immutable runner receipts and output tails |
 | `csned-inl/fitter-artifact` | `codex/thermostat-symbolic-machine`; reviewed here at `77494663012487cad802bb4b99ee940e39d43010` | Generic direct-SysML symbolic-process, Markov, structural-discretization, and method-validation research |
@@ -260,148 +259,6 @@ The improvement battery at `d23046ca` compared behavior cloning losses, bounded 
 
 Do not call shielded task success evidence that the learned DNN independently learned the exact safe controller. The unshielded evaluations did not support that claim.
 
-## Continuous model 2: Hall-sensored BLDC motor
-
-### Source and model scope
-
-Files:
-
-- `sysml-models/hall-sensored-bldc/model.sysml`
-- `sysml-models/hall-sensored-bldc/README.md`
-- `sysml-models/hall-sensored-bldc/REVIEW.md`
-- `sysml-models/hall-sensored-bldc/SOURCE_CONFORMANCE_AUDIT.md`
-
-The process is centered on the selected NXP Hall-sensored six-step BLDC material and the compatible Sunrise motor parameter file. Published facts, derived quantities, project assumptions, and excluded behavior are labeled separately. It is a RUN-phase nominal control experiment, not a validated digital twin of the physical bench.
-
-State distinctions include:
-
-- rotor angle, physical speed, and physical energized-pair current;
-- sampled Hall sector/code, sampled current, and six-period speed estimate;
-- policy proposal, contract-bounded proposal, plant-current-projected duty, and executed phase voltage;
-- Hall timing/history and direction;
-- fixed motor/bench parameters, target, tolerance, and source-declared assumptions.
-
-Requirements:
-
-| Metadata | Requirement |
-| --- | --- |
-| NeuralRequirement | Neural Speed Controller Soundness |
-| Prohibition | Executed Duty Within Authorized Range |
-| Prohibition | Invalid Hall State Disables Drive |
-| Prohibition | Valid Hall Commutation Uses Distinct Phases |
-| Prohibition | Physical Pair Current Within Rated Limit |
-| Prohibition | Projected Pair Current Within Rated Limit |
-| Prohibition | Current Safety Projection Remains Feasible |
-| Prohibition | Physical Speed Within Nameplate Envelope |
-| Obligation | Controller Supplies Bounded Duty Proposal |
-
-Task success is reaching target speed within the project-defined 5 rad/s tolerance. Safety and task completion are distinct.
-
-### Serious defects found and corrected
-
-The initial motor draft and first training runs cannot be treated as current evidence. The following corrections were required:
-
-1. **Speed estimate:** one Hall interval was replaced by the sourced six-period, direction-consistent estimate. Direction reversal resets the period window.
-2. **Hall timing:** the executable 50 μs polling approximation and maximum capture delay are explicit; it is not falsely described as exact asynchronous interrupt timing.
-3. **Current protection:** the inadequate controller-rate, same-direction cutoff allowed roughly 11 A and was removed. The replacement advances an exact-model observer every 50 μs, algebraically computes the complete safe-duty interval, and projects the bounded proposal onto it.
-4. **Target envelope:** the 24 V motor's 9,000 rpm nameplate was incorrectly used as a 12 V task target. The target range is now capped at the exact-part NXP nominal 4,000 rpm; 9,000 rpm remains only the execution safety envelope.
-5. **Parser initialization:** Boolean instance initializers were being discarded and are now preserved.
-6. **Policy observation:** the `#Completion` input is excluded from pre-action policy observations; it is produced by the execution engine, not available to the controller before acting.
-7. **Normalization:** the final trainer uses declared per-input scales rather than one inappropriate global scale.
-8. **PPO likelihood:** PPO records the sampled proposal and its log probability. It never scores a projected/executed action as though the policy sampled it.
-9. **Reward attribution:** proposal correction is measured against the duty actually executed after the plant-facing current projection, using the completed process state rather than the next policy-input packet.
-10. **Floating execution guard:** projection targets `±5.999999 A` so binary64 drift cannot fall a few ulps outside the exact outer `±6 A` runtime requirement. The real-arithmetic proof establishes the stronger inner bound.
-
-The final source still has explicit limitations: scalar averaged two-phase dynamics; assumed pair inductance/reduction; zero external load and loss torque; ideal current sensing; sampled Hall timing; no switching ripple, thermal model, startup/alignment sequence, parameter uncertainty, or hardware trajectory validation.
-
-### Motor verification
-
-`hall_motor_verification.py`:
-
-1. validates a pinned source slice and extracts the exact constants;
-2. generates a solver-free structural certificate for observer induction, current-projection algebra, the three projection regions, feasibility over the declared envelope, target feasibility, Hall invalid-state shutdown, and every commutation table row;
-3. emits a compact real-arithmetic SMV relation;
-4. asks nuXmv to prove each emitted invariant separately.
-
-At `429e7d87efe21164836ec93eebca344122fd5e4f`:
-
-- 36/36 focused runner tests passed;
-- all seven nuXmv obligations proved;
-- the short guarded Mac MPS PPO smoke completed both shielded modes with zero unsafe executed steps.
-
-These results prove only the encoded nominal discrete model and its stated assumptions. They are not certificates for NXP hardware, unpublished PI tuning, switching-level current peaks, omitted operating phases, or thermal safety.
-
-### Motor PPO semantics and historical evidence
-
-The two active full-training modes are:
-
-- `shielded_executed_credit`: PPO likelihood remains on the proposal, while task reward is based on actual process execution and includes a small intervention cost;
-- `shielded_proposal_credit`: PPO likelihood remains on the proposal, and a bounded non-flat penalty replaces ordinary negative reward when the proposal differs from the process-executed action.
-
-No shield intervention terminates an episode. Only an actually allowed unsafe unshielded action may trigger the unshielded safety termination mode.
-
-Historical pre-correction results must not be promoted as current controller evidence. They were useful diagnostics:
-
-- the early 100-episode motor run at `fc642328` had 4/20 shielded-executed evaluation successes and 0/20 shielded-proposal evaluation successes;
-- the short ablation at `5f17a507` showed that fixed-target progress reward could produce 10/10 evaluation success, while random-target progress obtained only 2/10; this helped identify target distribution and reward shape as bottlenecks;
-- those runs preceded the final plant, parser, observation, PPO-credit, current-projection, and numerical-guard corrections.
-
-## Current motor training jobs — failed experiment record
-
-### Incomplete 2,000-episode request
-
-Request `standalone-motor-full-shielded-20261005-1700` returned exit code **255** after only 110/2,000 episodes of its first mode. It never trained the second mode and produced no final evaluation or comparison. The receipt is `results/standalone-motor-full-shielded-20261005-1700.json` on `compute-results`. Its progress lines are incomplete diagnostics only.
-
-### Misconfigured 500-episode request: discard the result
-
-Request `standalone-motor-500ep-10ms-20261005-1752` was submitted at compute-request commit `ac6d03f86af0d3cee26e317db2c659160d0153e1` against source `429e7d87efe21164836ec93eebca344122fd5e4f`. It requested both shielded modes, 500 training episodes and 100 evaluation episodes per mode, 300 controller decisions per episode, and MacBook MPS.
-
-The user ordered one simple experimental timing change: make the controller discretization/update interval ten times longer and reduce the controller-step count by ten. The submission did **not** implement that as one propagated parameter change. Instead it patched `speedControlTicksPerUpdate` from 20 to 200 while leaving `DT_SECONDS = 0.00005` and the SysML electrical/current/commutation timing separately hardcoded. It also rewrote the safety-slice digest in the temporary runner worktree.
-
-Consequences:
-
-- one nominal 10 ms controller interval still causes 200 interpreted 50 μs engine cycles;
-- 300 controller decisions still cost up to 60,000 interpreted SysML transitions per episode;
-- 1,000 training episodes plus 200 evaluation episodes request up to 72,000,000 interpreted transitions;
-- the small GRU/PPO work may use MPS, but the dominant source interpreter and requirement checks are serial CPU work;
-- the tenfold reduction in controller decisions therefore did not produce the intended tenfold reduction in simulation work.
-
-The prior failed request processed roughly 110 episodes in about 31 minutes, implying that the replacement request could require hours or hit the same runner limit. At 18:23 UTC on 2026-10-05, its expected receipt `results/standalone-motor-500ep-10ms-20261005-1752.json` did not exist.
-
-**If this request later returns, record its receipt for provenance and discard its training result. Do not compare, publish, or use its policy checkpoint.** It does not represent the single-parameter timing experiment requested by the user.
-
-The failed response after discovering this problem proposed compiling a fast transition kernel. The user rejected that correctly. No compiler is required or authorized. The defect is the failure to represent and propagate the intended timing parameter consistently.
-
-## Mandatory timing audit and repair — next session only
-
-This is a release blocker, not optional cleanup.
-
-The user uses **`dt` to mean the controller discretization/decision interval**. The demanded experiment should have changed that one parameter from its prior value to a value ten times larger and reduced the controller-step cap by ten. Every dependent timing quantity must be derived from that source or fail closed. Independent timing literals must not be patched by hand.
-
-The next session must first audit, without modifying source:
-
-- the Hall-motor SysML timing declarations and all derived schedules;
-- `hall_motor_training.py`, especially `DT_SECONDS`;
-- `ContinuousSysMLEnv`, `SimulatorTwin`, and `SimulationEngine` timing semantics;
-- controller-update, sensor, shield, plant, observer, and requirement-check cadence;
-- episode horizon, controller-step cap, reward normalization, and PPO discount interpretation;
-- emitted nuXmv/SMT constants, symbolic recurrences, hashes, certificates, and result metadata;
-- the rotary-pendulum model and training path for the same class of duplicated or inconsistent timing.
-
-The audit must produce an explicit dependency table showing the one authoritative controller `dt`, every value derived from it, and every genuinely independent physical timing constant. It must determine whether the intended tenfold controller-`dt` experiment changes only a controller interval, changes the numerical integration interval, or requires another already-specified relationship. Do not invent that relationship privately.
-
-Only after user approval may the next session implement the smallest repair. Required acceptance tests include:
-
-1. change the authoritative controller `dt` once and show every intended dependent value changes automatically;
-2. prove that no stale duplicate literal controls runtime or proof behavior;
-3. show the physical episode horizon and controller-step count are consistent;
-4. show trainer, simulator, shield, symbolic transition, and proof backends report identical timing metadata;
-5. fail closed on inconsistent or non-integral timing relationships;
-6. rerun focused timing tests before any full verification or training;
-7. invalidate all certificates and checkpoints whose timing fingerprint no longer matches.
-
-Do not add a compiler, simulator replacement, macro-transition engine, or performance architecture unless the user separately authorizes it after the minimal parameter repair is understood.
-
 ## Other design conclusions from this session
 
 ### Shielded training and task performance
@@ -428,7 +285,7 @@ A future continuous model must be based on:
 2. one authoritative accepted engineering/scientific model;
 3. or measured data identifying an actual process.
 
-Compatible sources may enrich missing fields only when compatibility is explicit and documented. The Hall motor and pendulum source comments record their selected references; preserve them as nonsemantic provenance.
+Compatible sources may enrich missing fields only when compatibility is explicit and documented. The pendulum source comments record its selected references; preserve them as nonsemantic provenance.
 
 ## Compute resources
 
