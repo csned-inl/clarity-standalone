@@ -23,7 +23,6 @@ class ExecutionParameterTests(unittest.TestCase):
             "cruise-controller-model": (0.1, 1, 0.1),
             "mixing-sysml-model": (0.1, 1, 0.1),
             "rotary-inverted-pendulum": (0.001, 1, 0.001),
-            "hall-sensored-bldc": (0.001, 20, 0.00005),
         }
         for directory, values in expected.items():
             with self.subTest(model=directory):
@@ -33,22 +32,6 @@ class ExecutionParameterTests(unittest.TestCase):
                     float(execution.controller_interval_seconds), values[0])
                 self.assertEqual(execution.integration_substeps, values[1])
                 self.assertEqual(execution.integration_step_float, values[2])
-
-    def test_one_source_edit_changes_controller_and_integration_intervals(self):
-        source_model = MODELS / "hall-sensored-bldc" / "model.sysml"
-        source = source_model.read_text()
-        source = source.replace(
-            "controllerIntervalSeconds : Real = 0.001;",
-            "controllerIntervalSeconds : Real = 0.01;",
-            1,
-        )
-        with tempfile.TemporaryDirectory() as directory:
-            model = Path(directory) / "model.sysml"
-            model.write_text(source)
-            execution = load_execution_parameters(model)
-        self.assertEqual(float(execution.controller_interval_seconds), 0.01)
-        self.assertEqual(execution.integration_substeps, 20)
-        self.assertEqual(execution.integration_step_float, 0.0005)
 
     def test_explicit_integration_step_is_assertion_not_override(self):
         model = MODELS / "thermostat" / "model.sysml"

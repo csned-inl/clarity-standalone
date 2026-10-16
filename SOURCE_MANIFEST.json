@@ -4,10 +4,6 @@
       "file": "sysml-models/cruise-controller-model/model.sysml",
       "sha256": "7c65d57ce02dceab9901f1e0357787b44877f482ca404302a9ad9979b919b50d"
     },
-    "hall-sensored-bldc": {
-      "file": "sysml-models/hall-sensored-bldc/model.sysml",
-      "sha256": "1af98812f89494010688af2fc5a957b678250bffbe2c6e8d0ad58e425698ea4c"
-    },
     "mixing": {
       "file": "sysml-models/mixing-sysml-model/model.sysml",
       "sha256": "82eb230ff12a5caa134eb2b2b41f17c7f001df872c86af5c2096d4a91813f58e"
