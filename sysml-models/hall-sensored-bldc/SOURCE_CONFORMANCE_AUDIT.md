@@ -1,5 +1,11 @@
 # Source-conformance and missing-data audit
 
+> **Historical implementation audit.** The scalar-plant and certificate claims
+> below predate the phase-resolved revision. Expanded source research dated
+> 2026-10-16 is recorded in [SOURCE_MATERIALS.md](SOURCE_MATERIALS.md), including
+> newly retrieved NXP equations/source scripts and a MathWorks kit simulation.
+> That register updates evidence availability without certifying implementation.
+
 This audit distinguishes four categories that must not be conflated:
 
 1. **directly sourced** facts copied from the selected NXP material;

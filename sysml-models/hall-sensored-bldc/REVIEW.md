@@ -1,5 +1,9 @@
 # Hall-sensored BLDC model review record
 
+> **Source research update (2026-10-16):** See
+> [SOURCE_MATERIALS.md](SOURCE_MATERIALS.md) for the expanded source register.
+> This review predates the phase-resolved revision and does not verify it.
+
 This record separates source transcription checks from later verification and
 physical-validation claims.
 

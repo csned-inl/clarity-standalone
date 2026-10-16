@@ -1,5 +1,12 @@
 # Hall-sensored brushless motor: pinned NXP RUN-phase model
 
+> **Source research update (2026-10-16):** See
+> [SOURCE_MATERIALS.md](SOURCE_MATERIALS.md) for the expanded NXP/MathWorks
+> documentation, retrieved Hall/FOC parameter scripts, source hashes, published
+> simulation parameters, and unresolved waveform/friction/disc-inertia evidence.
+> The implementation descriptions below refer to the earlier scalar model;
+> they do not certify the current phase-resolved model.
+
 This directory contains a SysML v2 model in the same CLARITY-oriented form as
 the standalone thermostat, cruise-controller, mixing-machine, and rotary
 inverted-pendulum models. It is not an average of several motors or reference
