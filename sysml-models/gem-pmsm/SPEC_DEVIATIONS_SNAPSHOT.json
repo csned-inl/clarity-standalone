@@ -1,0 +1,217 @@
+{
+  "recorded_date": "2026-10-15",
+  "authority_commit": "b474daf9cf1ef55e9161009cb06bb996072d0df0",
+  "scope": "Local working files inspected for PMSM source deviations; hashes identify this snapshot, not a certification. Includes pre-existing tracked working-tree changes without attributing their authorship.",
+  "files": [
+    {
+      "path": "README.md",
+      "sha256": "48cdc09ced03bc327a6890c345af69a498077e79ead7667d84741ac526c686b2",
+      "bytes": 8231
+    },
+    {
+      "path": "formal.py",
+      "sha256": "5957ba1d0b1186cec27f4be521274e0cfbda66685e310f43d9d6b3787c046399",
+      "bytes": 11194
+    },
+    {
+      "path": "pipeline.py",
+      "sha256": "20f717625058bcb3e357a138e3b55a8d079e11831fde19580c8a62d0c38349a0",
+      "bytes": 6719
+    },
+    {
+      "path": "pmsm_pipeline.py",
+      "sha256": "c772f255935fe21314aa88e0a4e6e509ad4b26fcff4b843af474d58cdf3a3ba7",
+      "bytes": 19954
+    },
+    {
+      "path": "pmsm_proof/__init__.py",
+      "sha256": "f50649c268864b4a80aa956a068781ed954382931b090032cf85751d5200643b",
+      "bytes": 85
+    },
+    {
+      "path": "pmsm_proof/check_fp_contract.py",
+      "sha256": "bdc9515a88efe603d1e8ffc9a36e5e444885448847fe8b26db9a9bd4b54fdd17",
+      "bytes": 3806
+    },
+    {
+      "path": "pmsm_proof/check_native.py",
+      "sha256": "d45e73f26a713a132ab8ff26fa033cf245e1a5afd1573228666181b23df7b0c6",
+      "bytes": 6104
+    },
+    {
+      "path": "pmsm_proof/check_serialization.py",
+      "sha256": "06d5f3f6578bd5a469691f70c68db9e9ce04d3aa2cf9c5d49d34489f47d09fca",
+      "bytes": 16325
+    },
+    {
+      "path": "pmsm_proof/check_word_operations.py",
+      "sha256": "e208732b43dd78b11b3b93bcc7f3c03fafe0ed108a7087b8698bfbc2efae2ef6",
+      "bytes": 3973
+    },
+    {
+      "path": "pmsm_proof/emit_smv.py",
+      "sha256": "77cac6cd70432cfe2d6edd8129ab6b82f51cb2ea9e8c743b2c72a27fb17bace4",
+      "bytes": 6349
+    },
+    {
+      "path": "pmsm_proof/fp_contract.py",
+      "sha256": "33c088f1b7aeee90558d4bad195b5ea1b85cf314167bd0625b548ac163242067",
+      "bytes": 2770
+    },
+    {
+      "path": "pmsm_proof/prepare.py",
+      "sha256": "05bcd711e8ad5bf9bb1468e1879786e4ae6c463b7939509173e90e26000e4061",
+      "bytes": 2921
+    },
+    {
+      "path": "pmsm_proof/shield_contract.py",
+      "sha256": "da7f7648273e92eba57f9b585d7b2d33917cb3c1683306434b1c8355db207813",
+      "bytes": 12340
+    },
+    {
+      "path": "pmsm_proof/source_relation.py",
+      "sha256": "fa4b05d2ca2770f422d7124bb7f8548371a82a5f45fe8f6804b355a0fc250abe",
+      "bytes": 22605
+    },
+    {
+      "path": "pmsm_proof/vendor/scipy-1.18.1-dop.c",
+      "sha256": "14b9fdce5f18e6ad01eb814ec7965cc51804ba49b359d4bd6cf72a958239d213",
+      "bytes": 40489
+    },
+    {
+      "path": "pmsm_training_comparison.py",
+      "sha256": "97f0d64271769261a90d57ff73b583c22c377c42d39fec24532d8cfaa28ebd93",
+      "bytes": 6960
+    },
+    {
+      "path": "pmsm_training_setup.py",
+      "sha256": "d884bee0830deddc29c30d31c3af6bbbb579f0252a069c6e6c28eebcadab7849",
+      "bytes": 4186
+    },
+    {
+      "path": "requirements.txt",
+      "sha256": "c976cc858a5e18b4a8ea5764b6cf4d04da4a275ca6a24eb189f0e5bdd9582cec",
+      "bytes": 28
+    },
+    {
+      "path": "rl/continuous_box_spec.py",
+      "sha256": "8e8c919adb6801cc2e83fb644ed31d94c539b1cf49ac0469af5e4d6ac6073812",
+      "bytes": 3021
+    },
+    {
+      "path": "rl/continuous_env.py",
+      "sha256": "9940eced54e80db946e6a8de1c94b25e9f9b8caf30efa0ecf1b520b7a2bd7d28",
+      "bytes": 5744
+    },
+    {
+      "path": "rl/env.py",
+      "sha256": "3f9a4345db064a76627737a313f17cd9b9e2f43e6931e9c3ef4ded0de3e9370f",
+      "bytes": 13538
+    },
+    {
+      "path": "rl/pmsm_held_action.py",
+      "sha256": "a591a9cd5e15ae7c1aa0e22788b0e3970dad6f36b60f6fd2764bc10eb7b9194c",
+      "bytes": 10650
+    },
+    {
+      "path": "rl/pmsm_lipschitz_shield.py",
+      "sha256": "35a2c7f05075c980912b58aeed25468390590c89691d9038bba0c21d2d07ea4b",
+      "bytes": 30137
+    },
+    {
+      "path": "sysml-models/gem-pmsm-1ms/model.sysml",
+      "sha256": "67b282f4f524c7463d7f43949e4805e03d9658188eca15c72a848be4483e0cea",
+      "bytes": 29572
+    },
+    {
+      "path": "sysml-models/gem-pmsm/model.sysml",
+      "sha256": "2e4b6d62a6a7ad7382d160ef12759b48e966905b1286970b38cbf9139b989d6f",
+      "bytes": 29545
+    },
+    {
+      "path": "sysml-models/gem_pmsm_adapter.py",
+      "sha256": "6f8c00481198796f8bbbf5e01127cea87913b81b31f691a6d20be12cccbaacb8",
+      "bytes": 8305
+    },
+    {
+      "path": "sysml-models/gem_pmsm_profiles.py",
+      "sha256": "7c9360a9d1cb69c9f32375030a8bef2bcb6dc09aa908f2a5e4ee891f882f23cc",
+      "bytes": 590
+    },
+    {
+      "path": "sysml-models/gem_pmsm_runtime.py",
+      "sha256": "9a313922b9468dffafbdad2f1e76dc6aa2da3250ba478ebcb9b636e28a648446",
+      "bytes": 12959
+    },
+    {
+      "path": "sysml-models/mc-extract.py",
+      "sha256": "fe0c3d9f628e2eba81cf5deddb5ade9adea16a39883d1f571b47658ab7a0c813",
+      "bytes": 101821
+    },
+    {
+      "path": "sysml-models/runtime_backends.py",
+      "sha256": "7ce19881f974cdc24ebbd57016f7205d15fb59aa8a3131ea7e02d52bbf7ba5dc",
+      "bytes": 846
+    },
+    {
+      "path": "sysml-models/simulator_adapter.py",
+      "sha256": "ddf719da35c460f17bf72e1377ef168d860038fd60cedec6f1ab3522997b7803",
+      "bytes": 6153
+    },
+    {
+      "path": "sysml-models/sysml_parser.py",
+      "sha256": "0eb8d8034a386787d4bc33883e67a0a03a2920792fa135a8a52dc8c62e9e10f4",
+      "bytes": 57048
+    },
+    {
+      "path": "tests/test_formal_isolation.py",
+      "sha256": "8a0f785a5f9d50422fb57d4a4f4eb126e8533f0d1d804c5720a34ba20739e36f",
+      "bytes": 6675
+    },
+    {
+      "path": "tests/test_gem_pmsm_pipeline.py",
+      "sha256": "c36d01bbc6728e6c6a4ea04ff83bb034ef35f27611a13b8284b8f8a67cf0e9dc",
+      "bytes": 7118
+    },
+    {
+      "path": "tests/test_pmsm_coarse_interval.py",
+      "sha256": "a7666d0af1c10081dba409508aaa44c20b28a042f499e2dcdf50cfd8d8573417",
+      "bytes": 4492
+    },
+    {
+      "path": "tests/test_pmsm_held_action.py",
+      "sha256": "3b6590f4948b7aa13c9c3e219f7c1645b9c55b6bb9fbb0f2366ec6879396206b",
+      "bytes": 5521
+    },
+    {
+      "path": "tests/test_pmsm_held_formal.py",
+      "sha256": "842cdf3f53353d1e959d35b2e39936cb07142d56ede4fa11964928da1c673d2c",
+      "bytes": 2468
+    },
+    {
+      "path": "tests/test_pmsm_lipschitz_runtime.py",
+      "sha256": "1e701c42fa04fcf25f292d37d87b4b2d8ad42f3504a547072c6c695ab9f7f6f1",
+      "bytes": 18711
+    },
+    {
+      "path": "tests/test_pmsm_proof_preparation.py",
+      "sha256": "f877fdaa43e562e734ac6ea4494a8c281b27992f9e6afb714e994d2afb048613",
+      "bytes": 2762
+    },
+    {
+      "path": "tests/test_pmsm_shield_contract.py",
+      "sha256": "16d5791dab713ab771ddae14e69fa1e66de9667a15016a1579d44d1711c9bd63",
+      "bytes": 1653
+    },
+    {
+      "path": "tests/test_pmsm_training_modes.py",
+      "sha256": "fb4e7f11105fe43403711ea2cbaa5c6867034de4451c8fe0dff7a6382e131d6d",
+      "bytes": 6311
+    },
+    {
+      "path": "tests/test_pmsm_training_setup.py",
+      "sha256": "3da5badddc8f172bb215641735c6877bcf0b758da3a237c03d0849e05480590a",
+      "bytes": 4294
+    }
+  ]
+}

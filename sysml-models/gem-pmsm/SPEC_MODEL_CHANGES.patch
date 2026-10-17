@@ -1,0 +1,121 @@
+--- audited-GEM_PMSM_speed_control.sysml
++++ gem-pmsm/model.sysml
+@@ -13,6 +13,7 @@
+     metadata def ScenarioConstraint :> Metaobject;
+     metadata def TrainingObjective :> Metaobject;
+     metadata def RuntimeBinding :> Metaobject;
++    metadata def Completion :> Metaobject;
+ 
+     /* Source-checked benchmark model, 2026-10-14.
+      * Authority: upb-lea/gym-electric-motor commit
+@@ -25,7 +26,7 @@
+      * Phase-current observations also use that START angle (source behavior).
+      * Only the observed angle is wrapped; the ODE angle is never reset/wrapped.
+      * Numerical integration and seeded randomness are source-bound runtime services;
+-     * gem_model_runtime.py implements those services and evaluates these calculations.
++     * gem_pmsm_runtime.py implements those services and evaluates these calculations.
+      * This is not a claim of execution by CLARITY's existing scalar simulator.
+      * Constraint violation is reported. The plant remains evolvable after violation.
+      * Training/environment code decides whether to terminate an episode.
+@@ -248,6 +249,7 @@
+         #Neural action def Policy {
+             in reading : NormalizedObservation;
+             in normalizedReference : Real;
++            in #Completion done : Boolean;
+             out phaseA : Real;
+             out phaseB : Real;
+             out phaseC : Real;
+@@ -417,7 +419,7 @@
+     }
+ 
+     #RuntimeBinding action def IntegrateDopri5 {
+-        doc /* Binding: gem_model_runtime.ModelPlant.integrate. Stateful scipy.integrate.ode with dopri5 and default options; derivative is MotorVectorField. Reuse the integrator across control intervals, hold d/q voltage fixed; integrate to timeSeconds + intervalSeconds. No state projection or post-fault absorbing mode. */
++        doc /* Binding: gem_pmsm_runtime.ModelPlant.integrate. Stateful scipy.integrate.ode with dopri5 and default options; derivative is MotorVectorField. Reuse the integrator across control intervals, hold d/q voltage fixed; integrate to timeSeconds + intervalSeconds. No state projection or post-fault absorbing mode. */
+         in initialState : PhysicalState;
+         in heldVoltage : RotorFrameVoltages;
+         in motorParameters : MotorParameters;
+@@ -428,7 +430,7 @@
+     }
+ 
+     #RuntimeBinding action def AdvanceReference {
+-        doc /* Binding: gem_model_runtime.ModelReference. On environment reset seed NumPy SeedSequence(seed).spawn(4)[1]; RandomComponent.seed consumes spawn(1) for the initial RNG. Draw initial uniform value before next_generator consumes the next spawn(1). A subepisode draws floor(500+1500*U) steps, sigma=10**(-3+2*U), then a batch of normal(0,sigma,count) increments, clipped cumulatively. Consume the first generated reference on reset. Per step reward uses current value, then advance this service for the returned next reference. */
++        doc /* Binding: gem_pmsm_runtime.ModelReference. On environment reset seed NumPy SeedSequence(seed).spawn(4)[1]; RandomComponent.seed consumes spawn(1) for the initial RNG. Draw initial uniform value before next_generator consumes the next spawn(1). A subepisode draws floor(500+1500*U) steps, sigma=10**(-3+2*U), then a batch of normal(0,sigma,count) increments, clipped cumulatively. Consume the first generated reference on reset. Per step reward uses current value, then advance this service for the returned next reference. */
+         in episodeSeed : Integer;
+         in resetRequested : Boolean;
+         out normalizedReference : Real;
+@@ -533,6 +535,12 @@
+         item plantState : PhysicalState;
+         item observation : NormalizedObservation;
+         attribute currentReference : Real;
++        // Project-selected trial horizon; no change to physical GEM dynamics.
++        // Completion is flagged on the final decision, then its response is
++        // integrated and checked before reporting terminal to the trainer.
++        attribute trialDurationSeconds : Real = 3.0;
++        attribute trialControlSteps : Integer = 30000;
++        attribute completedControlSteps : Integer := 0;
+         attribute elapsedSeconds : Real := 0.0;
+         attribute lastSafetyViolation : Boolean := false;
+ 
+@@ -544,6 +552,7 @@
+             then assign plantState := initial.initialState;
+             then assign observation := resetReading.reading;
+             then assign elapsedSeconds := 0.0;
++            then assign completedControlSteps := 0;
+             then assign lastSafetyViolation := false;
+             then action initialReference : AdvanceReference {
+                 in episodeSeed = resetSeed;
+@@ -559,6 +568,7 @@
+             then action policyCall : MotorController::Policy {
+                 in reading = observation;
+                 in normalizedReference = currentReference;
++                in done = completedControlSteps + 1 >= trialControlSteps;
+             }
+             then action advance : SampledTransition {
+                 in incomingState = plantState;
+@@ -576,6 +586,7 @@
+             then assign observation := advance.nextObservation;
+             then assign lastSafetyViolation := advance.safetyViolation;
+             then assign elapsedSeconds := elapsedSeconds + 0.0001;
++            then assign completedControlSteps := completedControlSteps + 1;
+             then action nextReference : AdvanceReference {
+                 in episodeSeed = cycleSeed;
+                 in resetRequested = false;
+
+--- gem-pmsm/model.sysml
++++ gem-pmsm-1ms/model.sysml
+@@ -21,7 +21,7 @@
+      * SOURCE_TRACEABILITY.csv identifies every calculation and runtime service.
+      * SI scalar magnitudes are used internally; NormalizedObservation is dimensionless.
+      * ODE state order: mechanical speed, d current, q current, unwrapped electrical angle.
+-     * SampledTransition models one 100 microsecond abc-control interval.
++     * SampledTransition models one 1 millisecond abc-control interval (experimental sampling variant).
+      * The dq voltage is transformed at its START and held during integration.
+      * Phase-current observations also use that START angle (source behavior).
+      * Only the observed angle is wrapped; the ODE angle is never reset/wrapped.
+@@ -443,7 +443,7 @@
+         in transitionLoadParameters : LoadParameters;
+         in transitionTimeSeconds : Real;
+         in referenceUsed : Real;
+-        attribute samplePeriodSeconds : Real = 0.0001;
++        attribute samplePeriodSeconds : Real = 0.001;
+         attribute busVolts : Real = 420.0;
+         calc commandedBridge : ContinuousBridgeExecution { in proposal = requestedDrive; in supplyVoltageVolts = busVolts; }
+         calc transform : ClarkeParkVoltageTransform {
+@@ -539,7 +539,7 @@
+         // Completion is flagged on the final decision, then its response is
+         // integrated and checked before reporting terminal to the trainer.
+         attribute trialDurationSeconds : Real = 3.0;
+-        attribute trialControlSteps : Integer = 30000;
++        attribute trialControlSteps : Integer = 3000;
+         attribute completedControlSteps : Integer := 0;
+         attribute elapsedSeconds : Real := 0.0;
+         attribute lastSafetyViolation : Boolean := false;
+@@ -585,7 +585,7 @@
+             then assign plantState := advance.finalState;
+             then assign observation := advance.nextObservation;
+             then assign lastSafetyViolation := advance.safetyViolation;
+-            then assign elapsedSeconds := elapsedSeconds + 0.0001;
++            then assign elapsedSeconds := elapsedSeconds + 0.001;
+             then assign completedControlSteps := completedControlSteps + 1;
+             then action nextReference : AdvanceReference {
+                 in episodeSeed = cycleSeed;
